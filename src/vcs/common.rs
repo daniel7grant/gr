@@ -31,9 +31,18 @@ pub struct PullRequest {
     pub reviewers: Option<Vec<User>>,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct CreatePullRequest {
+    pub title: String,
+    pub description: String,
+    pub source: String,
+    pub destination: String,
+    pub close_source_branch: bool,
+}
+
 #[async_trait]
 pub trait VersionControl {
     fn init(auth: (String, String), repo: (String, String)) -> Self;
-    async fn create_pr(self) -> Result<PullRequest>;
+    async fn create_pr(self, pr: CreatePullRequest) -> Result<PullRequest>;
     async fn get_pr(self, branch: &str) -> Result<PullRequest>;
 }
