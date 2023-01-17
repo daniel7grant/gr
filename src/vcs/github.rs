@@ -16,10 +16,10 @@ impl VersionControl for GitHub {
         let client = Client::new();
         GitHub { auth, client, project, repo }
     }
-    async fn create_pr(self, pr: CreatePullRequest) -> Result<PullRequest> {
+    async fn create_pr(&self, pr: CreatePullRequest) -> Result<PullRequest> {
         unimplemented!();
     }
-    async fn get_pr(self, branch: &str) -> Result<PullRequest> {
+    async fn get_pr(&self, branch: &str) -> Result<PullRequest> {
         unimplemented!();
     }
 }

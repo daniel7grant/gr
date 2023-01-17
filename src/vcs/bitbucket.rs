@@ -200,7 +200,7 @@ impl VersionControl for Bitbucket {
             repo,
         }
     }
-    async fn create_pr(self, pr: CreatePullRequest) -> Result<PullRequest> {
+    async fn create_pr(&self, pr: CreatePullRequest) -> Result<PullRequest> {
         let new_pr: BitbucketPullRequest = self
             .call(
                 Method::POST,
@@ -211,7 +211,7 @@ impl VersionControl for Bitbucket {
 
         Ok(new_pr.into())
     }
-    async fn get_pr(self, branch: &str) -> Result<PullRequest> {
+    async fn get_pr(&self, branch: &str) -> Result<PullRequest> {
         let prs: Vec<BitbucketPullRequest> = self.call_paginated(&format!("/pullrequests")).await?;
 
         prs.into_iter()

@@ -1,20 +1,28 @@
 mod vcs;
 use color_eyre::Result;
-use vcs::{bitbucket::Bitbucket, common::VersionControl};
+use vcs::common::CreatePullRequest;
+use vcs::{common::VersionControl, gitlab::GitLab};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
 
-    let bitbucket = Bitbucket::init(
-        (
-            "daniel7grant".to_string(),
-            "ATBBjDd7qVpNLhzyxyKg85u3b3hk6327C40C".to_string(),
-        ),
-        ("thisisdone".to_string(), "bd-helm".to_string()),
+    let vcs = GitLab::init(
+        ("grant".to_string(), "4AuLXZqc-Ps2cLAxcwcD".to_string()),
+        ("grant".to_string(), "gr".to_string()),
     );
 
-    let pr = bitbucket.get_pr("feature/nodeport-wpscan").await?;
+    // let new_pr = vcs
+    //     .create_pr(CreatePullRequest {
+    //         title: "asd".to_string(),
+    //         description: "asd".to_string(),
+    //         source: "feature/test".to_string(),
+    //         destination: "master".to_string(),
+    //         close_source_branch: true,
+    //     })
+    //     .await?;
+
+    let pr = vcs.get_pr("feature/test").await?;
     println!("{:#?}", pr);
     Ok(())
 }

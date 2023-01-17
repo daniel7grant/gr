@@ -14,6 +14,7 @@ pub enum PullRequestState {
     OPEN,
     DECLINED,
     MERGED,
+    LOCKED,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -43,6 +44,6 @@ pub struct CreatePullRequest {
 #[async_trait]
 pub trait VersionControl {
     fn init(auth: (String, String), repo: (String, String)) -> Self;
-    async fn create_pr(self, pr: CreatePullRequest) -> Result<PullRequest>;
-    async fn get_pr(self, branch: &str) -> Result<PullRequest>;
+    async fn create_pr(&self, pr: CreatePullRequest) -> Result<PullRequest>;
+    async fn get_pr(&self, branch: &str) -> Result<PullRequest>;
 }

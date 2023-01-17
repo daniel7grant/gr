@@ -1,13 +1,13 @@
 use super::common::{CreatePullRequest, PullRequest, PullRequestState, User, VersionControl};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use color_eyre::Result;
+use color_eyre::{eyre::eyre, Result};
 use reqwest::{Client, Method};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct GitLabUser {
-    pub id: String,
+    pub id: u32,
     pub username: String,
     pub name: String,
 }
@@ -20,10 +20,33 @@ impl Into<User> for GitLabUser {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+pub enum GitLabPullRequestState {
+    #[serde(rename = "opened")]
+    OPEN,
+    #[serde(rename = "closed")]
+    DECLINED,
+    #[serde(rename = "merged")]
+    MERGED,
+    #[serde(rename = "locked")]
+    LOCKED,
+}
+
+impl Into<PullRequestState> for GitLabPullRequestState {
+    fn into(self) -> PullRequestState {
+        match self {
+            GitLabPullRequestState::OPEN => PullRequestState::OPEN,
+            GitLabPullRequestState::DECLINED => PullRequestState::DECLINED,
+            GitLabPullRequestState::MERGED => PullRequestState::MERGED,
+            GitLabPullRequestState::LOCKED => PullRequestState::LOCKED,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct GitLabPullRequest {
     pub id: u32,
     pub iid: u32,
-    pub state: PullRequestState,
+    pub state: GitLabPullRequestState,
     pub title: String,
     pub description: String,
     pub source_branch: String,
@@ -53,7 +76,7 @@ impl Into<PullRequest> for GitLabPullRequest {
         } = self;
         PullRequest {
             id: iid,
-            state,
+            state: state.into(),
             title,
             description,
             source: source_branch,
@@ -113,9 +136,12 @@ impl GitLab {
             .client
             .request(
                 method,
-                format!("/api/projects/{}%2F{}{}", self.project, self.repo, url),
+                format!(
+                    "https://gitlab.danielgrants.com/api/v4/projects/{}%2F{}{}",
+                    self.project, self.repo, url
+                ),
             )
-            .basic_auth(&self.auth.0, Some(&self.auth.1))
+            .header("Authorization", format!("Bearer {}", &self.auth.1))
             .header("Content-Type", "application/json");
         if let Some(body) = body {
             request = request.json(&body);
@@ -138,7 +164,7 @@ impl VersionControl for GitLab {
             repo,
         }
     }
-    async fn create_pr(self, pr: CreatePullRequest) -> Result<PullRequest> {
+    async fn create_pr(&self, pr: CreatePullRequest) -> Result<PullRequest> {
         let new_pr: GitLabPullRequest = self
             .call(
                 Method::POST,
@@ -149,15 +175,18 @@ impl VersionControl for GitLab {
 
         Ok(new_pr.into())
     }
-    async fn get_pr(self, branch: &str) -> Result<PullRequest> {
-        let pr: GitLabPullRequest = self
+    async fn get_pr(&self, branch: &str) -> Result<PullRequest> {
+        let prs: Vec<GitLabPullRequest> = self
             .call(
                 Method::GET,
-                &format!("/merge_requests?state=opened&source_branch={branch}"),
+                &format!("/merge_requests?state=opened&source_branch={}", branch),
                 None as Option<i32>,
             )
             .await?;
 
-        Ok(pr.into())
+        match prs.into_iter().next() {
+            Some(pr) => Ok(pr.into()),
+            None => Err(eyre!("Pull request on branch {branch} not found.")),
+        }
     }
 }
