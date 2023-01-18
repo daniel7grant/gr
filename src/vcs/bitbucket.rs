@@ -5,22 +5,25 @@ use color_eyre::{eyre::eyre, eyre::ContextCompat, Result};
 use reqwest::{Client, Method};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub enum BitbucketPullRequestState {
-    #[default]
-    OPEN,
-    DECLINED,
-    MERGED,
-    LOCKED,
+    #[serde(rename = "OPEN")]
+    Open,
+    #[serde(rename = "DECLINED")]
+    Declined,
+    #[serde(rename = "MERGED")]
+    Merged,
+    #[serde(rename = "LOCKED")]
+    Locked,
 }
 
-impl Into<PullRequestState> for BitbucketPullRequestState {
-    fn into(self) -> PullRequestState {
-        match self {
-            BitbucketPullRequestState::OPEN => PullRequestState::OPEN,
-            BitbucketPullRequestState::DECLINED => PullRequestState::CLOSED,
-            BitbucketPullRequestState::MERGED => PullRequestState::MERGED,
-            BitbucketPullRequestState::LOCKED => PullRequestState::LOCKED,
+impl From<BitbucketPullRequestState> for PullRequestState {
+    fn from(pr: BitbucketPullRequestState) -> PullRequestState {
+        match pr {
+            BitbucketPullRequestState::Open => PullRequestState::Open,
+            BitbucketPullRequestState::Declined => PullRequestState::Closed,
+            BitbucketPullRequestState::Merged => PullRequestState::Merged,
+            BitbucketPullRequestState::Locked => PullRequestState::Locked,
         }
     }
 }
@@ -33,9 +36,9 @@ pub struct BitbucketUser {
     pub display_name: String,
 }
 
-impl Into<User> for BitbucketUser {
-    fn into(self) -> User {
-        let Self { nickname, .. } = self;
+impl From<BitbucketUser> for User {
+    fn from(user: BitbucketUser) -> User {
+        let BitbucketUser { nickname, .. } = user;
         User { username: nickname }
     }
 }
@@ -77,9 +80,9 @@ pub struct BitbucketPullRequest {
     pub reviewers: Option<Vec<BitbucketUser>>,
 }
 
-impl Into<PullRequest> for BitbucketPullRequest {
-    fn into(self) -> PullRequest {
-        let Self {
+impl From<BitbucketPullRequest> for PullRequest {
+    fn from(pr: BitbucketPullRequest) -> PullRequest {
+        let BitbucketPullRequest {
             id,
             state,
             title,
@@ -91,7 +94,7 @@ impl Into<PullRequest> for BitbucketPullRequest {
             author,
             closed_by,
             reviewers,
-        } = self;
+        } = pr;
         PullRequest {
             id,
             state: state.into(),
@@ -102,7 +105,7 @@ impl Into<PullRequest> for BitbucketPullRequest {
             created_at: created_on,
             updated_at: updated_on,
             author: author.into(),
-            closed_by: closed_by.map(|c| c.into()),
+            closed_by: closed_by.map(|u| u.into()),
             reviewers: reviewers.map(|rs| rs.into_iter().map(|r| r.into()).collect()),
         }
     }
@@ -199,7 +202,7 @@ impl Bitbucket {
 
             collected_values.append(&mut page.values);
 
-            if let None = page.next {
+            if page.next.is_none() {
                 break;
             }
 
@@ -232,7 +235,7 @@ impl VersionControl for Bitbucket {
         Ok(new_pr.into())
     }
     async fn get_pr(&self, branch: &str) -> Result<PullRequest> {
-        let prs: Vec<BitbucketPullRequest> = self.call_paginated(&format!("/pullrequests")).await?;
+        let prs: Vec<BitbucketPullRequest> = self.call_paginated("/pullrequests").await?;
 
         prs.into_iter()
             .find(|pr| pr.source.branch.name == branch)

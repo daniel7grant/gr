@@ -8,13 +8,12 @@ pub struct User {
     pub username: String,
 }
 
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub enum PullRequestState {
-    #[default]
-    OPEN,
-    CLOSED,
-    MERGED,
-    LOCKED,
+    Open,
+    Closed,
+    Merged,
+    Locked,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

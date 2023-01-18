@@ -12,9 +12,9 @@ pub struct GitLabUser {
     pub name: String,
 }
 
-impl Into<User> for GitLabUser {
-    fn into(self) -> User {
-        let Self { username, .. } = self;
+impl From<GitLabUser> for User {
+    fn from(user: GitLabUser) -> User {
+        let GitLabUser { username, .. } = user;
         User { username }
     }
 }
@@ -22,22 +22,22 @@ impl Into<User> for GitLabUser {
 #[derive(Debug, Deserialize, Serialize)]
 pub enum GitLabPullRequestState {
     #[serde(rename = "opened")]
-    OPEN,
+    Open,
     #[serde(rename = "closed")]
-    DECLINED,
+    Closed,
     #[serde(rename = "merged")]
-    MERGED,
+    Merged,
     #[serde(rename = "locked")]
-    LOCKED,
+    Locked,
 }
 
-impl Into<PullRequestState> for GitLabPullRequestState {
-    fn into(self) -> PullRequestState {
-        match self {
-            GitLabPullRequestState::OPEN => PullRequestState::OPEN,
-            GitLabPullRequestState::DECLINED => PullRequestState::CLOSED,
-            GitLabPullRequestState::MERGED => PullRequestState::MERGED,
-            GitLabPullRequestState::LOCKED => PullRequestState::LOCKED,
+impl From<GitLabPullRequestState> for PullRequestState {
+    fn from(state: GitLabPullRequestState) -> PullRequestState {
+        match state {
+            GitLabPullRequestState::Open => PullRequestState::Open,
+            GitLabPullRequestState::Closed => PullRequestState::Closed,
+            GitLabPullRequestState::Merged => PullRequestState::Merged,
+            GitLabPullRequestState::Locked => PullRequestState::Locked,
         }
     }
 }
@@ -58,9 +58,9 @@ pub struct GitLabPullRequest {
     pub reviewers: Option<Vec<GitLabUser>>,
 }
 
-impl Into<PullRequest> for GitLabPullRequest {
-    fn into(self) -> PullRequest {
-        let Self {
+impl From<GitLabPullRequest> for PullRequest {
+    fn from(pr: GitLabPullRequest) -> PullRequest {
+        let GitLabPullRequest {
             iid,
             state,
             title,
@@ -73,7 +73,7 @@ impl Into<PullRequest> for GitLabPullRequest {
             closed_by,
             reviewers,
             ..
-        } = self;
+        } = pr;
         PullRequest {
             id: iid,
             state: state.into(),

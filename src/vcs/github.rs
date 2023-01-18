@@ -11,9 +11,9 @@ pub struct GitHubUser {
     pub login: String,
 }
 
-impl Into<User> for GitHubUser {
-    fn into(self) -> User {
-        let Self { login, .. } = self;
+impl From<GitHubUser> for User {
+    fn from(user: GitHubUser) -> User {
+        let GitHubUser { login, .. } = user;
         User { username: login }
     }
 }
@@ -21,16 +21,16 @@ impl Into<User> for GitHubUser {
 #[derive(Debug, Deserialize, Serialize)]
 pub enum GitHubPullRequestState {
     #[serde(rename = "open")]
-    OPEN,
+    Open,
     #[serde(rename = "closed")]
-    MERGED,
+    Merged,
 }
 
-impl Into<PullRequestState> for GitHubPullRequestState {
-    fn into(self) -> PullRequestState {
-        match self {
-            GitHubPullRequestState::OPEN => PullRequestState::OPEN,
-            GitHubPullRequestState::MERGED => PullRequestState::MERGED,
+impl From<GitHubPullRequestState> for PullRequestState {
+    fn from(state: GitHubPullRequestState) -> PullRequestState {
+        match state {
+            GitHubPullRequestState::Open => PullRequestState::Open,
+            GitHubPullRequestState::Merged => PullRequestState::Merged,
         }
     }
 }
@@ -58,9 +58,9 @@ pub struct GitHubPullRequest {
     pub requested_reviewers: Option<Vec<GitHubUser>>,
 }
 
-impl Into<PullRequest> for GitHubPullRequest {
-    fn into(self) -> PullRequest {
-        let Self {
+impl From<GitHubPullRequest> for PullRequest {
+    fn from(pr: GitHubPullRequest) -> PullRequest {
+        let GitHubPullRequest {
             number,
             state,
             title,
@@ -73,7 +73,7 @@ impl Into<PullRequest> for GitHubPullRequest {
             merged_by,
             requested_reviewers,
             ..
-        } = self;
+        } = pr;
         PullRequest {
             id: number,
             state: state.into(),
@@ -146,10 +146,6 @@ impl GitHub {
             request = request.json(&body);
         }
         let result = request.send().await?;
-
-        // let t = result.text().await?;
-        // dbg!(t);
-        // todo!();
 
         let t: T = result.json().await?;
         Ok(t)
