@@ -3,6 +3,8 @@ use chrono::{DateTime, Utc};
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
+use super::{bitbucket::Bitbucket, github::GitHub, gitlab::GitLab};
+
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct User {
     pub username: String,
@@ -42,7 +44,22 @@ pub struct CreatePullRequest {
 
 #[async_trait]
 pub trait VersionControl {
-    fn init(hostname: String, repo: String, auth: String) -> Self;
+    fn init(hostname: String, repo: String, auth: String) -> Self
+    where
+        Self: Sized;
     async fn create_pr(&self, pr: CreatePullRequest) -> Result<PullRequest>;
     async fn get_pr(&self, branch: &str) -> Result<PullRequest>;
+}
+
+pub fn init_vcs(
+    hostname: String,
+    repo: String,
+    auth: String,
+    ty: Option<String>,
+) -> Box<dyn VersionControl> {
+    match (hostname.as_str(), ty) {
+        ("github.com", _) => Box::new(GitHub::init(hostname, repo, auth)),
+        ("bitbucket.com", _) => Box::new(Bitbucket::init(hostname, repo, auth)),
+        (_, _) => Box::new(GitLab::init(hostname, repo, auth)),
+    }
 }
