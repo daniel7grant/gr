@@ -1,18 +1,19 @@
-mod vcs;
 use color_eyre::Result;
-use vcs::common::CreatePullRequest;
-use vcs::{common::VersionControl, github::GitHub};
+use gr::git::url::parse_url;
+use gr::vcs::{
+    common::{CreatePullRequest, VersionControl},
+    github::GitHub,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
 
+    let (hostname, repo) = parse_url("git@github.com:daniel7grant/dvali.git")?;
     let vcs = GitHub::init(
-        (
-            "daniel7grant".to_string(),
-            "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".to_string(),
-        ),
-        ("daniel7grant".to_string(), "dvali".to_string()),
+        hostname,
+        repo,
+        "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".to_string(),
     );
 
     let _ = vcs

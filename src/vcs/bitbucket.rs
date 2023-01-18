@@ -155,9 +155,8 @@ pub struct BitbucketPaginated<T> {
 }
 
 pub struct Bitbucket {
-    auth: (String, String),
+    auth: String,
     client: Client,
-    project: String,
     repo: String,
 }
 
@@ -168,16 +167,20 @@ impl Bitbucket {
         url: &str,
         body: Option<U>,
     ) -> Result<T> {
+        let (username, password) = self
+            .auth
+            .split_once(':')
+            .wrap_err("Authentication has to contain a username and a token.")?;
         let mut request = self
             .client
             .request(
                 method,
                 format!(
-                    "https://api.bitbucket.org/2.0/repositories/{}/{}{}",
-                    self.project, self.repo, url
+                    "https://api.bitbucket.org/2.0/repositories/{}{}",
+                    self.repo, url
                 ),
             )
-            .basic_auth(&self.auth.0, Some(&self.auth.1))
+            .basic_auth(username, Some(password))
             .header("Content-Type", "application/json");
         if let Some(body) = body {
             request = request.json(&body);
@@ -214,14 +217,9 @@ impl Bitbucket {
 
 #[async_trait]
 impl VersionControl for Bitbucket {
-    fn init(auth: (String, String), (project, repo): (String, String)) -> Self {
+    fn init(_: String, repo: String, auth: String) -> Self {
         let client = Client::new();
-        Bitbucket {
-            auth,
-            client,
-            project,
-            repo,
-        }
+        Bitbucket { auth, client, repo }
     }
     async fn create_pr(&self, pr: CreatePullRequest) -> Result<PullRequest> {
         let new_pr: BitbucketPullRequest = self

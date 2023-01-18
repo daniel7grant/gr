@@ -117,9 +117,8 @@ impl From<CreatePullRequest> for GitHubCreatePullRequest {
 }
 
 pub struct GitHub {
-    auth: (String, String),
+    auth: String,
     client: Client,
-    project: String,
     repo: String,
 }
 
@@ -134,13 +133,10 @@ impl GitHub {
             .client
             .request(
                 method,
-                format!(
-                    "https://api.github.com/repos/{}/{}{}",
-                    self.project, self.repo, url
-                ),
+                format!("https://api.github.com/repos/{}{}", self.repo, url),
             )
             .header("User-Agent", "gr")
-            .header("Authorization", format!("Bearer {}", &self.auth.1))
+            .header("Authorization", format!("Bearer {}", &self.auth))
             .header("Content-Type", "application/json");
         if let Some(body) = body {
             request = request.json(&body);
@@ -154,14 +150,9 @@ impl GitHub {
 
 #[async_trait]
 impl VersionControl for GitHub {
-    fn init(auth: (String, String), (project, repo): (String, String)) -> Self {
+    fn init(_: String, repo: String, auth: String) -> Self {
         let client = Client::new();
-        GitHub {
-            auth,
-            client,
-            project,
-            repo,
-        }
+        GitHub { auth, client, repo }
     }
     async fn create_pr(&self, pr: CreatePullRequest) -> Result<PullRequest> {
         let new_pr: GitHubPullRequest = self

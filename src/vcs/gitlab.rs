@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use color_eyre::{eyre::eyre, Result};
 use reqwest::{Client, Method};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use urlencoding::encode;
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct GitLabUser {
@@ -119,9 +120,9 @@ impl From<CreatePullRequest> for GitLabCreatePullRequest {
 }
 
 pub struct GitLab {
-    auth: (String, String),
+    auth: String,
     client: Client,
-    project: String,
+    hostname: String,
     repo: String,
 }
 
@@ -137,11 +138,13 @@ impl GitLab {
             .request(
                 method,
                 format!(
-                    "https://gitlab.danielgrants.com/api/v4/projects/{}%2F{}{}",
-                    self.project, self.repo, url
+                    "https://{}/api/v4/projects/{}{}",
+                    self.hostname,
+                    encode(&self.repo).into_owned(),
+                    url
                 ),
             )
-            .header("Authorization", format!("Bearer {}", &self.auth.1))
+            .header("Authorization", format!("Bearer {}", &self.auth))
             .header("Content-Type", "application/json");
         if let Some(body) = body {
             request = request.json(&body);
@@ -155,12 +158,12 @@ impl GitLab {
 
 #[async_trait]
 impl VersionControl for GitLab {
-    fn init(auth: (String, String), (project, repo): (String, String)) -> Self {
+    fn init(hostname: String, repo: String, auth: String) -> Self {
         let client = Client::new();
         GitLab {
             auth,
             client,
-            project,
+            hostname,
             repo,
         }
     }
