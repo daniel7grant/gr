@@ -1,7 +1,7 @@
 mod vcs;
 use color_eyre::Result;
 use vcs::common::CreatePullRequest;
-use vcs::{common::VersionControl, github::GitHub, gitlab::GitLab};
+use vcs::{common::VersionControl, github::GitHub};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -15,15 +15,15 @@ async fn main() -> Result<()> {
         ("daniel7grant".to_string(), "dvali".to_string()),
     );
 
-    // let new_pr = vcs
-    //     .create_pr(CreatePullRequest {
-    //         title: "asd".to_string(),
-    //         description: "asd".to_string(),
-    //         source: "feature/rethink-types2".to_string(),
-    //         destination: "master".to_string(),
-    //         close_source_branch: true,
-    //     })
-    //     .await?;
+    let _ = vcs
+        .create_pr(CreatePullRequest {
+            title: "asd".to_string(),
+            description: "asd".to_string(),
+            source: "feature/rethink-types2".to_string(),
+            target: "master".to_string(),
+            close_source_branch: true,
+        })
+        .await?;
 
     let pr = vcs.get_pr("feature/rethink-types2").await?;
     println!("{:#?}", pr);

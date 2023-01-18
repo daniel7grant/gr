@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use chrono::{Utc, DateTime};
+use chrono::{DateTime, Utc};
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
@@ -12,7 +12,7 @@ pub struct User {
 pub enum PullRequestState {
     #[default]
     OPEN,
-    DECLINED,
+    CLOSED,
     MERGED,
     LOCKED,
 }
@@ -24,9 +24,9 @@ pub struct PullRequest {
     pub title: String,
     pub description: String,
     pub source: String,
-    pub destination: String,
-    pub created_on: DateTime<Utc>,
-    pub updated_on: DateTime<Utc>,
+    pub target: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
     pub author: User,
     pub closed_by: Option<User>,
     pub reviewers: Option<Vec<User>>,
@@ -37,7 +37,7 @@ pub struct CreatePullRequest {
     pub title: String,
     pub description: String,
     pub source: String,
-    pub destination: String,
+    pub target: String,
     pub close_source_branch: bool,
 }
 

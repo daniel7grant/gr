@@ -6,6 +6,26 @@ use reqwest::{Client, Method};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 #[derive(Debug, Default, Deserialize, Serialize)]
+pub enum BitbucketPullRequestState {
+    #[default]
+    OPEN,
+    DECLINED,
+    MERGED,
+    LOCKED,
+}
+
+impl Into<PullRequestState> for BitbucketPullRequestState {
+    fn into(self) -> PullRequestState {
+        match self {
+            BitbucketPullRequestState::OPEN => PullRequestState::OPEN,
+            BitbucketPullRequestState::DECLINED => PullRequestState::CLOSED,
+            BitbucketPullRequestState::MERGED => PullRequestState::MERGED,
+            BitbucketPullRequestState::LOCKED => PullRequestState::LOCKED,
+        }
+    }
+}
+
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct BitbucketUser {
     pub account_id: String,
     pub uuid: String,
@@ -45,7 +65,7 @@ pub struct BitbucketPullRequestRevision {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct BitbucketPullRequest {
     pub id: u32,
-    pub state: PullRequestState,
+    pub state: BitbucketPullRequestState,
     pub title: String,
     pub description: String,
     pub created_on: DateTime<Utc>,
@@ -74,13 +94,13 @@ impl Into<PullRequest> for BitbucketPullRequest {
         } = self;
         PullRequest {
             id,
-            state,
+            state: state.into(),
             title,
             description,
             source: source.branch.name,
-            destination: destination.branch.name,
-            created_on,
-            updated_on,
+            target: destination.branch.name,
+            created_at: created_on,
+            updated_at: updated_on,
             author: author.into(),
             closed_by: closed_by.map(|c| c.into()),
             reviewers: reviewers.map(|rs| rs.into_iter().map(|r| r.into()).collect()),
@@ -103,7 +123,7 @@ impl From<CreatePullRequest> for BitbucketCreatePullRequest {
             title,
             description,
             source,
-            destination,
+            target: destination,
             close_source_branch,
         } = pr;
         Self {

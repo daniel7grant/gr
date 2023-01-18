@@ -80,9 +80,9 @@ impl Into<PullRequest> for GitHubPullRequest {
             title,
             description: body,
             source: head.branch,
-            destination: base.branch,
-            created_on: created_at,
-            updated_on: updated_at,
+            target: base.branch,
+            created_at,
+            updated_at,
             author: user.into(),
             closed_by: merged_by.map(|c| c.into()),
             reviewers: requested_reviewers.map(|rs| rs.into_iter().map(|r| r.into()).collect()),
@@ -104,7 +104,7 @@ impl From<CreatePullRequest> for GitHubCreatePullRequest {
             title,
             description,
             source,
-            destination,
+            target: destination,
             ..
         } = pr;
         Self {

@@ -35,7 +35,7 @@ impl Into<PullRequestState> for GitLabPullRequestState {
     fn into(self) -> PullRequestState {
         match self {
             GitLabPullRequestState::OPEN => PullRequestState::OPEN,
-            GitLabPullRequestState::DECLINED => PullRequestState::DECLINED,
+            GitLabPullRequestState::DECLINED => PullRequestState::CLOSED,
             GitLabPullRequestState::MERGED => PullRequestState::MERGED,
             GitLabPullRequestState::LOCKED => PullRequestState::LOCKED,
         }
@@ -61,7 +61,6 @@ pub struct GitLabPullRequest {
 impl Into<PullRequest> for GitLabPullRequest {
     fn into(self) -> PullRequest {
         let Self {
-            id,
             iid,
             state,
             title,
@@ -73,6 +72,7 @@ impl Into<PullRequest> for GitLabPullRequest {
             author,
             closed_by,
             reviewers,
+            ..
         } = self;
         PullRequest {
             id: iid,
@@ -80,9 +80,9 @@ impl Into<PullRequest> for GitLabPullRequest {
             title,
             description,
             source: source_branch,
-            destination: target_branch,
-            created_on: created_at,
-            updated_on: updated_at,
+            target: target_branch,
+            created_at,
+            updated_at,
             author: author.into(),
             closed_by: closed_by.map(|c| c.into()),
             reviewers: reviewers.map(|rs| rs.into_iter().map(|r| r.into()).collect()),
@@ -105,14 +105,14 @@ impl From<CreatePullRequest> for GitLabCreatePullRequest {
             title,
             description,
             source,
-            destination,
+            target,
             close_source_branch,
         } = pr;
         Self {
             title,
             description,
             source_branch: source,
-            target_branch: destination,
+            target_branch: target,
             remove_source_branch: close_source_branch,
         }
     }
