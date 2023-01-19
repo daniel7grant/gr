@@ -60,7 +60,7 @@ pub fn init_vcs(
 ) -> Box<dyn VersionControl> {
     match (hostname.as_str(), ty) {
         ("github.com", _) => Box::new(GitHub::init(hostname, repo, auth)),
-        ("bitbucket.com", _) => Box::new(Bitbucket::init(hostname, repo, auth)),
+        ("bitbucket.org", _) => Box::new(Bitbucket::init(hostname, repo, auth)),
         (_, _) => Box::new(GitLab::init(hostname, repo, auth)),
     }
 }
