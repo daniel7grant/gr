@@ -44,6 +44,16 @@ impl From<BitbucketUser> for User {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+pub struct BitbucketPullRequestLink {
+    pub href: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct BitbucketPullRequestLinks {
+    pub html: BitbucketPullRequestLink,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct BitbucketPullRequestCommit {
     pub hash: String,
 }
@@ -71,6 +81,7 @@ pub struct BitbucketPullRequest {
     pub state: BitbucketPullRequestState,
     pub title: String,
     pub description: String,
+    pub links: BitbucketPullRequestLinks,
     pub created_on: DateTime<Utc>,
     pub updated_on: DateTime<Utc>,
     pub source: BitbucketPullRequestRevision,
@@ -89,6 +100,7 @@ impl From<BitbucketPullRequest> for PullRequest {
             description,
             source,
             destination,
+            links,
             created_on,
             updated_on,
             author,
@@ -102,6 +114,7 @@ impl From<BitbucketPullRequest> for PullRequest {
             description,
             source: source.branch.name,
             target: destination.branch.name,
+            url: links.html.href,
             created_at: created_on,
             updated_at: updated_on,
             author: author.into(),

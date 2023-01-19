@@ -26,6 +26,7 @@ pub struct PullRequest {
     pub description: String,
     pub source: String,
     pub target: String,
+    pub url: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub author: User,

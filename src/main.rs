@@ -12,14 +12,13 @@ use git::{
     url::parse_url,
 };
 use gr::vcs::common::{init_vcs, CreatePullRequest};
+use open::that as open_in_browser;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
 
     let args = Cli::parse_args();
-    println!("{:?}", args);
-
     let conf = Configuration::new()?;
 
     let repo = get_repository()?;
@@ -40,7 +39,11 @@ async fn main() -> Result<()> {
         Commands::Pr(PrCommands::Get { branch, open }) => {
             let branch = branch.unwrap_or(remote_branch);
             let pr = vcs.get_pr(&branch).await?;
-            println!("{:#?}", pr);
+            if open {
+                open_in_browser(pr.url)?;
+            } else {
+                println!("{:#?}", pr);
+            }
             Ok(())
         }
         Commands::Pr(PrCommands::Create {
@@ -61,7 +64,11 @@ async fn main() -> Result<()> {
                     close_source_branch: close,
                 })
                 .await?;
-            println!("{:#?}", pr);
+            if open {
+                open_in_browser(pr.url)?;
+            } else {
+                println!("{:#?}", pr);
+            }
             Ok(())
         }
         _ => Err(eyre!("Invalid command.")),
