@@ -42,6 +42,7 @@ pub enum Commands {
     /// Interact with pull requests
     #[command(subcommand)]
     Pr(PrCommands),
+    /// Generate tab completion to shell
     Completion {
         shell: Shell,
     },
@@ -50,6 +51,16 @@ pub enum Commands {
 #[derive(Debug, Parser)]
 #[command(name = "gr")]
 #[command(about = "Interact with remote repositories like you interact with git", long_about = None)]
+#[command(after_help = "Examples:
+
+Get information about the current branch PR:
+$ gr pr get
+
+Create pull request on current branch:
+$ gr pr create -m 'PR title'
+
+Generate bash completion:
+$ source <(gr completion bash)")]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
