@@ -2,12 +2,13 @@ use color_eyre::{
     eyre::{eyre, Context, ContextCompat},
     Result,
 };
-use git2::{BranchType, Repository};
+use git2::{BranchType, Repository, RepositoryOpenFlags};
 use std::env;
 
 pub fn get_repository() -> Result<Repository> {
     let cwd = env::current_dir()?;
-    Repository::open(cwd).wrap_err("There is no git repository in the current directory.")
+    Repository::open_ext(cwd, RepositoryOpenFlags::empty(), vec![] as Vec<String>)
+        .wrap_err("There is no git repository in the current directory.")
 }
 
 pub fn get_branch(repo: &Repository) -> Result<String> {
