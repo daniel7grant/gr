@@ -38,7 +38,7 @@ impl Configuration {
         Ok(config_file_path.to_string())
     }
 
-    pub fn new() -> Result<Configuration> {
+    pub fn parse() -> Result<Configuration> {
         let config_file_path = Configuration::get_default_config_file_path()?;
         let config_content = read_to_string(&config_file_path).wrap_err("");
 
