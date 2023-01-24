@@ -13,12 +13,7 @@ use open::that as open_in_browser;
 pub async fn get(command: Commands, conf: Configuration) -> Result<()> {
     if let Commands::Pr(PrCommands::Get { branch, dir, open }) = command {
         let repo = LocalRepository::init(dir)?;
-        let branch = if let Some(branch) = branch {
-            branch
-        } else {
-            repo.get_branch()?
-        };
-        let (remote_url, remote_branch) = repo.get_remote_data(&branch)?;
+        let (remote_url, remote_branch) = repo.get_remote_branch(branch)?;
         let (hostname, repo) = parse_url(&remote_url)?;
 
         let vcs_type = conf.find_type(&hostname);

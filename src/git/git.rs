@@ -34,7 +34,16 @@ impl LocalRepository {
         Ok(branch_shorthand.to_string())
     }
 
-    pub fn get_remote_data(self: &LocalRepository, branch_name: &str) -> Result<(String, String)> {
+    pub fn get_remote_branch(
+        self: &LocalRepository,
+        branch_name: Option<String>,
+    ) -> Result<(String, String)> {
+        let branch_name = if let Some(branch_name) = branch_name {
+            branch_name
+        } else {
+            self.get_branch()?
+        };
+
         let branch = self
             .repository
             .find_branch(&branch_name, BranchType::Local)
