@@ -7,10 +7,7 @@ use cmd::{
 };
 use color_eyre::eyre::{eyre, ContextCompat};
 use color_eyre::Result;
-use git::{
-    git::{get_branch, get_remote_data, get_repository},
-    url::parse_url,
-};
+use git::{git::LocalRepository, url::parse_url};
 use gr::vcs::common::{init_vcs, CreatePullRequest};
 use open::that as open_in_browser;
 
@@ -21,9 +18,9 @@ async fn main() -> Result<()> {
     let args = Cli::parse_args();
     let conf = Configuration::new()?;
 
-    let repo = get_repository()?;
-    let branch = get_branch(&repo)?;
-    let (remote_url, remote_branch) = get_remote_data(&repo, &branch)?;
+    let repo = LocalRepository::init()?;
+    let branch = repo.get_branch()?;
+    let (remote_url, remote_branch) = repo.get_remote_data(&branch)?;
     let (hostname, repo) = parse_url(&remote_url)?;
 
     let vcs_type = conf.find_type(&hostname);
