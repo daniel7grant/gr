@@ -1,5 +1,4 @@
 mod cmd;
-mod git;
 
 use cmd::{
     args::{Cli, Commands, PrCommands},

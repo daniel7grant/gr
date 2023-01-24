@@ -1,14 +1,12 @@
-use crate::{
-    cmd::{
-        args::{Commands, PrCommands},
-        config::Configuration,
-    },
-    git::{git::LocalRepository, url::parse_url},
+use crate::cmd::{
+    args::{Commands, PrCommands},
+    config::Configuration,
 };
 use color_eyre::{
     eyre::{eyre, ContextCompat},
     Result,
 };
+use gr::git::{git::LocalRepository, url::parse_url};
 use gr::vcs::common::{init_vcs, CreatePullRequest};
 use open::that as open_in_browser;
 
