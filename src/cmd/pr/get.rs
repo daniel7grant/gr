@@ -8,7 +8,6 @@ use color_eyre::{
 };
 use gr::git::{git::LocalRepository, url::parse_url};
 use gr::vcs::common::init_vcs;
-use open::that as open_in_browser;
 
 pub async fn get(command: Commands, conf: Configuration) -> Result<()> {
     if let Commands::Pr(PrCommands::Get { branch, dir, open }) = command {
@@ -26,11 +25,7 @@ pub async fn get(command: Commands, conf: Configuration) -> Result<()> {
         let vcs = init_vcs(hostname, repo, auth, vcs_type);
 
         let pr = vcs.get_pr(&remote_branch).await?;
-        if open {
-            open_in_browser(pr.url)?;
-        } else {
-            println!("{:#?}", pr);
-        }
+        pr.show(open);
         Ok(())
     } else {
         Err(eyre!("Invalid command!"))

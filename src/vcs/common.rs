@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use color_eyre::Result;
+use open::that as open_in_browser;
 use serde::{Deserialize, Serialize};
 
 use super::{bitbucket::Bitbucket, github::GitHub, gitlab::GitLab};
@@ -32,6 +33,17 @@ pub struct PullRequest {
     pub author: User,
     pub closed_by: Option<User>,
     pub reviewers: Option<Vec<User>>,
+}
+
+impl PullRequest {
+    pub fn show(&self, in_browser: bool) {
+        // Open in browser if open is true
+        if in_browser && open_in_browser(&self.url).is_ok() {
+            return;
+        }
+        // On open false or failed browser opening, print the PR
+        println!("{:#?}", self);
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]

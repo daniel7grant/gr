@@ -8,7 +8,6 @@ use color_eyre::{
 };
 use gr::git::{git::LocalRepository, url::parse_url};
 use gr::vcs::common::{init_vcs, CreatePullRequest};
-use open::that as open_in_browser;
 
 pub async fn create(command: Commands, conf: Configuration) -> Result<()> {
     if let Commands::Pr(PrCommands::Create {
@@ -43,11 +42,7 @@ pub async fn create(command: Commands, conf: Configuration) -> Result<()> {
                 close_source_branch: close,
             })
             .await?;
-        if open {
-            open_in_browser(pr.url)?;
-        } else {
-            println!("{:#?}", pr);
-        }
+        pr.show(open);
         Ok(())
     } else {
         Err(eyre!("Invalid command!"))
