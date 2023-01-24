@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use color_eyre::{eyre::eyre, eyre::ContextCompat, Result};
 use reqwest::{Client, Method};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use std::fmt::Debug;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub enum BitbucketPullRequestState {
@@ -72,6 +73,7 @@ pub struct BitbucketPullRequestRepository {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct BitbucketPullRequestRevision {
     pub branch: BitbucketPullRequestBranch,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub commit: Option<BitbucketPullRequestCommit>,
 }
 
@@ -174,7 +176,7 @@ pub struct Bitbucket {
 }
 
 impl Bitbucket {
-    async fn call<T: DeserializeOwned, U: Serialize>(
+    async fn call<T: DeserializeOwned, U: Serialize + Debug>(
         &self,
         method: Method,
         url: &str,
@@ -195,13 +197,22 @@ impl Bitbucket {
             )
             .basic_auth(username, Some(password))
             .header("Content-Type", "application/json");
-        if let Some(body) = body {
-            request = request.json(&body);
+        if let Some(body) = &body {
+            request = request.json(body);
         }
         let result = request.send().await?;
+        let data = result.text().await?;
 
-        let t: T = result.json().await?;
-        Ok(t)
+        let t = serde_json::from_str(&data);
+        match t {
+            Ok(t) => Ok(t),
+            Err(err) => {
+                println!("body: {:?}", serde_json::to_string(&body.unwrap()));
+                println!("data: {:?}", &data);
+                println!("err: {:?}", err);
+                Err(err.into())
+            }
+        }
     }
 
     async fn call_paginated<T: DeserializeOwned>(&self, url: &str) -> Result<Vec<T>> {

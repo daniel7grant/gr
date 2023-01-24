@@ -14,7 +14,7 @@ pub enum PrCommands {
         #[arg(short, long)]
         description: Option<String>,
         /// Change the source branch (default: the current branch)
-        #[arg(long)]
+        #[arg(short, long)]
         branch: Option<String>,
         /// Change the target branch (default: the default branch in the repo)
         #[arg(long)]
