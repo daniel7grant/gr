@@ -11,8 +11,8 @@ use gr::vcs::common::init_vcs;
 use open::that as open_in_browser;
 
 pub async fn get(command: Commands, conf: Configuration) -> Result<()> {
-    if let Commands::Pr(PrCommands::Get { branch, open }) = command {
-        let repo = LocalRepository::init()?;
+    if let Commands::Pr(PrCommands::Get { branch, dir, open }) = command {
+        let repo = LocalRepository::init(dir)?;
         let branch = if let Some(branch) = branch {
             branch
         } else {

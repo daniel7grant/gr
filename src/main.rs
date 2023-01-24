@@ -16,8 +16,16 @@ async fn main() -> Result<()> {
     let conf = Configuration::parse()?;
 
     match args.command {
-        Commands::Pr(PrCommands::Get { .. }) => get(args.command, conf).await,
         Commands::Pr(PrCommands::Create { .. }) => create(args.command, conf).await,
-        _ => Err(eyre!("Invalid command.")),
+        Commands::Pr(PrCommands::Get { .. }) => get(args.command, conf).await,
+        Commands::Pr(PrCommands::Open { branch, dir }) => {
+            let command = Commands::Pr(PrCommands::Get {
+                branch,
+                dir,
+                open: true,
+            });
+            get(command, conf).await
+        }
+        Commands::Completion { .. } => Err(eyre!("Invalid command.")),
     }
 }

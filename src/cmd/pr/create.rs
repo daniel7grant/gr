@@ -15,12 +15,13 @@ pub async fn create(command: Commands, conf: Configuration) -> Result<()> {
         message,
         description,
         branch,
+        dir,
         target,
         close,
         open,
     }) = command
     {
-        let repo = LocalRepository::init()?;
+        let repo = LocalRepository::init(dir)?;
         let branch = if let Some(branch) = branch {
             branch
         } else {
