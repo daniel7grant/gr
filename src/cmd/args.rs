@@ -16,6 +16,9 @@ pub enum PrCommands {
         /// Change the source branch (default: the current branch)
         #[arg(short, long)]
         branch: Option<String>,
+        /// Change the repo directory (default: the current directory)
+        #[arg(short, long)]
+        dir: Option<String>,
         /// Change the target branch (default: the default branch in the repo)
         #[arg(long)]
         target: Option<String>,
@@ -29,11 +32,23 @@ pub enum PrCommands {
     /// Get the open pull request for the current branch
     Get {
         /// Change the source branch (default: the current branch)
-        #[arg(long)]
+        #[arg(short, long)]
         branch: Option<String>,
+        /// Change the repo directory (default: the current directory)
+        #[arg(short, long)]
+        dir: Option<String>,
         /// Open the pull request in the browser
         #[arg(long)]
         open: bool,
+    },
+    /// Open the pull request in the browser
+    Open {
+        /// Change the source branch (default: the current branch)
+        #[arg(short, long)]
+        branch: Option<String>,
+        /// Change the repo directory (default: the current directory)
+        #[arg(short, long)]
+        dir: Option<String>,
     },
 }
 
@@ -43,9 +58,7 @@ pub enum Commands {
     #[command(subcommand)]
     Pr(PrCommands),
     /// Generate tab completion to shell
-    Completion {
-        shell: Shell,
-    },
+    Completion { shell: Shell },
 }
 
 #[derive(Debug, Parser)]

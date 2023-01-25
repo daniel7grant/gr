@@ -3,17 +3,21 @@ use color_eyre::{
     Result,
 };
 use git2::{BranchType, Repository, RepositoryOpenFlags};
-use std::env;
+use std::{env, path::PathBuf};
 
 pub struct LocalRepository {
     repository: Repository,
 }
 
 impl LocalRepository {
-    pub fn init() -> Result<LocalRepository> {
-        let cwd = env::current_dir()?;
+    pub fn init(path: Option<String>) -> Result<LocalRepository> {
+        let path = if let Some(path) = path {
+            PathBuf::from(path)
+        } else {
+            env::current_dir()?
+        };
         let repository =
-            Repository::open_ext(cwd, RepositoryOpenFlags::empty(), vec![] as Vec<String>)
+            Repository::open_ext(path, RepositoryOpenFlags::empty(), vec![] as Vec<String>)
                 .wrap_err("There is no git repository in the current directory.")?;
 
         Ok(LocalRepository { repository })
@@ -30,7 +34,16 @@ impl LocalRepository {
         Ok(branch_shorthand.to_string())
     }
 
-    pub fn get_remote_data(self: &LocalRepository, branch_name: &str) -> Result<(String, String)> {
+    pub fn get_remote_branch(
+        self: &LocalRepository,
+        branch_name: Option<String>,
+    ) -> Result<(String, String)> {
+        let branch_name = if let Some(branch_name) = branch_name {
+            branch_name
+        } else {
+            self.get_branch()?
+        };
+
         let branch = self
             .repository
             .find_branch(&branch_name, BranchType::Local)

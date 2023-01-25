@@ -1,5 +1,5 @@
 use color_eyre::{
-    eyre::{Context, ContextCompat},
+    eyre::{eyre, Context, ContextCompat},
     Result,
 };
 use dirs::config_dir;
@@ -38,12 +38,20 @@ impl Configuration {
         Ok(config_file_path.to_string())
     }
 
-    pub fn new() -> Result<Configuration> {
+    pub fn parse() -> Result<Configuration> {
         let config_file_path = Configuration::get_default_config_file_path()?;
-        let config_content = read_to_string(&config_file_path).wrap_err("");
+        let config_content = read_to_string(&config_file_path).wrap_err(eyre!(
+            "Configuration file {} cannot be opened.",
+            &config_file_path
+        ));
 
         let vcs: HashMap<String, VcsConfig> = config_content
-            .and_then(|content| serde_json::from_str(&content).wrap_err(""))
+            .and_then(|content| {
+                serde_json::from_str(&content).wrap_err(eyre!(
+                    "Configuration file {} cannot be JSON parsed.",
+                    &config_file_path
+                ))
+            })
             .unwrap_or_default();
 
         Ok(Configuration { vcs })
