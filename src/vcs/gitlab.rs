@@ -1,4 +1,4 @@
-use super::common::{CreatePullRequest, PullRequest, PullRequestState, User, VersionControl};
+use super::common::{CreatePullRequest, PullRequest, PullRequestState, User, VersionControl, VersionControlSettings};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use color_eyre::{eyre::eyre, Result};
@@ -143,7 +143,7 @@ impl From<CreatePullRequest> for GitLabCreatePullRequest {
 }
 
 pub struct GitLab {
-    auth: String,
+    settings: VersionControlSettings,
     client: Client,
     hostname: String,
     repo: String,
@@ -167,7 +167,7 @@ impl GitLab {
                     url
                 ),
             )
-            .header("Authorization", format!("Bearer {}", &self.auth))
+            .header("Authorization", format!("Bearer {}", &self.settings.auth))
             .header("Content-Type", "application/json");
         if let Some(body) = body {
             request = request.json(&body);
@@ -186,16 +186,17 @@ impl GitLab {
 
 #[async_trait]
 impl VersionControl for GitLab {
-    fn init(hostname: String, repo: String, auth: String) -> Self {
+    fn init(hostname: String, repo: String, settings: VersionControlSettings) -> Self {
         let client = Client::new();
         GitLab {
-            auth,
+            settings,
             client,
             hostname,
             repo,
         }
     }
     async fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {
+        pr.target = pr.target.or(self.settings.default_branch.clone());
         if pr.target.is_none() {
             let GitLabRepository { default_branch, .. } = self.get_repository_data().await?;
             pr.target = Some(default_branch);

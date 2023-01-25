@@ -1,4 +1,4 @@
-use super::common::{CreatePullRequest, PullRequest, PullRequestState, User, VersionControl};
+use super::common::{CreatePullRequest, PullRequest, PullRequestState, User, VersionControl, VersionControlSettings};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use color_eyre::{eyre::eyre, eyre::ContextCompat, Result};
@@ -171,7 +171,7 @@ pub struct BitbucketPaginated<T> {
 }
 
 pub struct Bitbucket {
-    auth: String,
+    settings: VersionControlSettings,
     client: Client,
     repo: String,
 }
@@ -184,6 +184,7 @@ impl Bitbucket {
         body: Option<U>,
     ) -> Result<T> {
         let (username, password) = self
+            .settings
             .auth
             .split_once(':')
             .wrap_err("Authentication has to contain a username and a token.")?;
@@ -242,9 +243,13 @@ impl Bitbucket {
 
 #[async_trait]
 impl VersionControl for Bitbucket {
-    fn init(_: String, repo: String, auth: String) -> Self {
+    fn init(_: String, repo: String, settings: VersionControlSettings) -> Self {
         let client = Client::new();
-        Bitbucket { auth, client, repo }
+        Bitbucket {
+            settings,
+            client,
+            repo,
+        }
     }
     async fn create_pr(&self, pr: CreatePullRequest) -> Result<PullRequest> {
         let new_pr: BitbucketPullRequest = self

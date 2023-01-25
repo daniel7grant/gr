@@ -15,14 +15,13 @@ pub async fn get(command: Commands, conf: Configuration) -> Result<()> {
         let (remote_url, remote_branch) = repo.get_remote_branch(branch)?;
         let (hostname, repo) = parse_url(&remote_url)?;
 
-        let vcs_type = conf.find_type(&hostname);
-        let auth = conf.find_auth(&hostname, &repo).wrap_err(eyre!(
-            "Authentication not found for {} {}.",
+        let settings = conf.find_settings(&hostname, &repo).wrap_err(eyre!(
+            "Authentication not found for {} in {}.",
             &hostname,
             &repo
         ))?;
 
-        let vcs = init_vcs(hostname, repo, auth, vcs_type);
+        let vcs = init_vcs(hostname, repo, settings);
 
         let pr = vcs.get_pr(&remote_branch).await?;
         pr.show(open);

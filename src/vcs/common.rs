@@ -84,9 +84,15 @@ pub struct CreatePullRequest {
     pub close_source_branch: bool,
 }
 
+#[derive(Debug)]
+pub struct VersionControlSettings {
+    pub auth: String,
+    pub vcs_type: Option<String>,
+    pub default_branch: Option<String>,
+}
 #[async_trait]
 pub trait VersionControl {
-    fn init(hostname: String, repo: String, auth: String) -> Self
+    fn init(hostname: String, repo: String, settings: VersionControlSettings) -> Self
     where
         Self: Sized;
     async fn create_pr(&self, pr: CreatePullRequest) -> Result<PullRequest>;
@@ -96,12 +102,11 @@ pub trait VersionControl {
 pub fn init_vcs(
     hostname: String,
     repo: String,
-    auth: String,
-    ty: Option<String>,
+    settings: VersionControlSettings,
 ) -> Box<dyn VersionControl> {
-    match (hostname.as_str(), ty) {
-        ("github.com", _) => Box::new(GitHub::init(hostname, repo, auth)),
-        ("bitbucket.org", _) => Box::new(Bitbucket::init(hostname, repo, auth)),
-        (_, _) => Box::new(GitLab::init(hostname, repo, auth)),
+    match (hostname.as_str(), &settings.vcs_type) {
+        ("github.com", _) => Box::new(GitHub::init(hostname, repo, settings)),
+        ("bitbucket.org", _) => Box::new(Bitbucket::init(hostname, repo, settings)),
+        (_, _) => Box::new(GitLab::init(hostname, repo, settings)),
     }
 }

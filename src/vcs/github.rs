@@ -1,4 +1,6 @@
-use super::common::{CreatePullRequest, PullRequest, PullRequestState, User, VersionControl};
+use super::common::{
+    CreatePullRequest, PullRequest, PullRequestState, User, VersionControl, VersionControlSettings,
+};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use color_eyre::{eyre::eyre, Result};
@@ -137,7 +139,7 @@ impl From<CreatePullRequest> for GitHubCreatePullRequest {
 }
 
 pub struct GitHub {
-    auth: String,
+    settings: VersionControlSettings,
     client: Client,
     repo: String,
 }
@@ -156,7 +158,7 @@ impl GitHub {
                 format!("https://api.github.com/repos/{}{}", self.repo, url),
             )
             .header("User-Agent", "gr")
-            .header("Authorization", format!("Bearer {}", &self.auth))
+            .header("Authorization", format!("Bearer {}", &self.settings.auth))
             .header("Content-Type", "application/json");
         if let Some(body) = body {
             request = request.json(&body);
@@ -175,11 +177,16 @@ impl GitHub {
 
 #[async_trait]
 impl VersionControl for GitHub {
-    fn init(_: String, repo: String, auth: String) -> Self {
+    fn init(_: String, repo: String, settings: VersionControlSettings) -> Self {
         let client = Client::new();
-        GitHub { auth, client, repo }
+        GitHub {
+            settings,
+            client,
+            repo,
+        }
     }
     async fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {
+        pr.target = pr.target.or(self.settings.default_branch.clone());
         if pr.target.is_none() {
             let GitHubRepository { default_branch, .. } = self.get_repository_data().await?;
             pr.target = Some(default_branch);
