@@ -131,7 +131,8 @@ pub struct BitbucketCreatePullRequest {
     pub title: String,
     pub description: String,
     pub source: BitbucketPullRequestRevision,
-    pub destination: BitbucketPullRequestRevision,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub destination: Option<BitbucketPullRequestRevision>,
     pub close_source_branch: bool,
 }
 
@@ -151,10 +152,10 @@ impl From<CreatePullRequest> for BitbucketCreatePullRequest {
                 branch: BitbucketPullRequestBranch { name: source },
                 commit: None,
             },
-            destination: BitbucketPullRequestRevision {
-                branch: BitbucketPullRequestBranch { name: destination },
+            destination: destination.map(|name| BitbucketPullRequestRevision {
+                branch: BitbucketPullRequestBranch { name },
                 commit: None,
-            },
+            }),
             close_source_branch,
         }
     }

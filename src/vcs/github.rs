@@ -5,7 +5,7 @@ use color_eyre::{eyre::eyre, Result};
 use reqwest::{Client, Method};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct GitHubUser {
     pub id: u32,
     pub login: String,
@@ -16,6 +16,22 @@ impl From<GitHubUser> for User {
         let GitHubUser { login, .. } = user;
         User { username: login }
     }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct GitHubRepository {
+    name: String,
+    full_name: String,
+    private: bool,
+    owner: GitHubUser,
+    html_url: String,
+    description: Option<String>,
+    created_at: DateTime<Utc>,
+    updated_at: DateTime<Utc>,
+    stargazers_count: u32,
+    archived: bool,
+    disabled: bool,
+    default_branch: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -114,7 +130,8 @@ impl From<CreatePullRequest> for GitHubCreatePullRequest {
             title,
             body: description,
             head: source,
-            base: destination,
+            // We are never supposed to fallback to this, but handle it
+            base: destination.unwrap_or("master".to_string()),
         }
     }
 }
@@ -149,6 +166,11 @@ impl GitHub {
         let t: T = result.json().await?;
         Ok(t)
     }
+
+    async fn get_repository_data(&self) -> Result<GitHubRepository> {
+        self.call::<GitHubRepository, i32>(Method::GET, "", None)
+            .await
+    }
 }
 
 #[async_trait]
@@ -157,7 +179,11 @@ impl VersionControl for GitHub {
         let client = Client::new();
         GitHub { auth, client, repo }
     }
-    async fn create_pr(&self, pr: CreatePullRequest) -> Result<PullRequest> {
+    async fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {
+        if pr.target.is_none() {
+            let GitHubRepository { default_branch, .. } = self.get_repository_data().await?;
+            pr.target = Some(default_branch);
+        }
         let new_pr: GitHubPullRequest = self
             .call(
                 Method::POST,
@@ -172,7 +198,7 @@ impl VersionControl for GitHub {
         let prs: Vec<GitHubPullRequest> = self
             .call(
                 Method::GET,
-                &format!("/pulls?state=open&head={}", branch),
+                &format!("/pulls?head={}", branch),
                 None as Option<i32>,
             )
             .await?;

@@ -38,7 +38,7 @@ pub async fn create(command: Commands, conf: Configuration) -> Result<()> {
                 title: message,
                 description: description.unwrap_or_default(),
                 source: remote_branch,
-                target: target.unwrap_or("master".to_string()),
+                target,
                 close_source_branch: close,
             })
             .await?;
