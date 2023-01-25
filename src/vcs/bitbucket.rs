@@ -202,18 +202,15 @@ impl Bitbucket {
         if let Some(body) = &body {
             request = request.json(body);
         }
+         
         let result = request.send().await?;
-        let data = result.text().await?;
-
-        let t = serde_json::from_str(&data);
-        match t {
-            Ok(t) => Ok(t),
-            Err(err) => {
-                println!("body: {:?}", serde_json::to_string(&body.unwrap()));
-                println!("data: {:?}", &data);
-                println!("err: {:?}", err);
-                Err(err.into())
-            }
+        let status = result.status();
+        if status.is_client_error() || status.is_server_error() {
+            let t = result.text().await?;
+            Err(eyre!("Request failed (response: {}).", t))
+        } else {
+            let t: T = result.json().await?;
+            Ok(t)
         }
     }
 

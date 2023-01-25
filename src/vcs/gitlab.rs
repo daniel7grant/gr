@@ -172,10 +172,16 @@ impl GitLab {
         if let Some(body) = body {
             request = request.json(&body);
         }
+        
         let result = request.send().await?;
-
-        let t: T = result.json().await?;
-        Ok(t)
+        let status = result.status();
+        if status.is_client_error() || status.is_server_error() {
+            let t = result.text().await?;
+            Err(eyre!("Request failed (response: {}).", t))
+        } else {
+            let t: T = result.json().await?;
+            Ok(t)
+        }
     }
 
     async fn get_repository_data(&self) -> Result<GitLabRepository> {
