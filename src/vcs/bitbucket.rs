@@ -1,4 +1,4 @@
-use super::common::{CreatePullRequest, PullRequest, PullRequestState, User, VersionControl};
+use super::common::{CreatePullRequest, PullRequest, PullRequestState, User, VersionControl, VersionControlSettings};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use color_eyre::{eyre::eyre, eyre::ContextCompat, Result};
@@ -131,7 +131,8 @@ pub struct BitbucketCreatePullRequest {
     pub title: String,
     pub description: String,
     pub source: BitbucketPullRequestRevision,
-    pub destination: BitbucketPullRequestRevision,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub destination: Option<BitbucketPullRequestRevision>,
     pub close_source_branch: bool,
 }
 
@@ -151,10 +152,10 @@ impl From<CreatePullRequest> for BitbucketCreatePullRequest {
                 branch: BitbucketPullRequestBranch { name: source },
                 commit: None,
             },
-            destination: BitbucketPullRequestRevision {
-                branch: BitbucketPullRequestBranch { name: destination },
+            destination: destination.map(|name| BitbucketPullRequestRevision {
+                branch: BitbucketPullRequestBranch { name },
                 commit: None,
-            },
+            }),
             close_source_branch,
         }
     }
@@ -170,7 +171,7 @@ pub struct BitbucketPaginated<T> {
 }
 
 pub struct Bitbucket {
-    auth: String,
+    settings: VersionControlSettings,
     client: Client,
     repo: String,
 }
@@ -183,6 +184,7 @@ impl Bitbucket {
         body: Option<U>,
     ) -> Result<T> {
         let (username, password) = self
+            .settings
             .auth
             .split_once(':')
             .wrap_err("Authentication has to contain a username and a token.")?;
@@ -200,18 +202,15 @@ impl Bitbucket {
         if let Some(body) = &body {
             request = request.json(body);
         }
+         
         let result = request.send().await?;
-        let data = result.text().await?;
-
-        let t = serde_json::from_str(&data);
-        match t {
-            Ok(t) => Ok(t),
-            Err(err) => {
-                println!("body: {:?}", serde_json::to_string(&body.unwrap()));
-                println!("data: {:?}", &data);
-                println!("err: {:?}", err);
-                Err(err.into())
-            }
+        let status = result.status();
+        if status.is_client_error() || status.is_server_error() {
+            let t = result.text().await?;
+            Err(eyre!("Request failed (response: {}).", t))
+        } else {
+            let t: T = result.json().await?;
+            Ok(t)
         }
     }
 
@@ -241,9 +240,13 @@ impl Bitbucket {
 
 #[async_trait]
 impl VersionControl for Bitbucket {
-    fn init(_: String, repo: String, auth: String) -> Self {
+    fn init(_: String, repo: String, settings: VersionControlSettings) -> Self {
         let client = Client::new();
-        Bitbucket { auth, client, repo }
+        Bitbucket {
+            settings,
+            client,
+            repo,
+        }
     }
     async fn create_pr(&self, pr: CreatePullRequest) -> Result<PullRequest> {
         let new_pr: BitbucketPullRequest = self

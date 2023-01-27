@@ -1,4 +1,4 @@
-use super::common::{CreatePullRequest, PullRequest, PullRequestState, User, VersionControl};
+use super::common::{CreatePullRequest, PullRequest, PullRequestState, User, VersionControl, VersionControlSettings};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use color_eyre::{eyre::eyre, Result};
@@ -6,7 +6,7 @@ use reqwest::{Client, Method};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use urlencoding::encode;
 
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct GitLabUser {
     pub id: u32,
     pub username: String,
@@ -18,6 +18,25 @@ impl From<GitLabUser> for User {
         let GitLabUser { username, .. } = user;
         User { username }
     }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct GitLabRepository {
+    id: u32,
+    name: String,
+    name_with_namespace: String,
+    path: String,
+    path_with_namespace: String,
+    description: String,
+    created_at: DateTime<Utc>,
+    default_branch: String,
+    web_url: String,
+    forks_count: u32,
+    star_count: u32,
+    last_activity_at: String,
+    archived: bool,
+    visibility: String,
+    owner: GitLabUser,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -116,14 +135,15 @@ impl From<CreatePullRequest> for GitLabCreatePullRequest {
             title,
             description,
             source_branch: source,
-            target_branch: target,
+            // We are never supposed to fallback to this, but handle it
+            target_branch: target.unwrap_or("master".to_string()),
             remove_source_branch: close_source_branch,
         }
     }
 }
 
 pub struct GitLab {
-    auth: String,
+    settings: VersionControlSettings,
     client: Client,
     hostname: String,
     repo: String,
@@ -147,30 +167,46 @@ impl GitLab {
                     url
                 ),
             )
-            .header("Authorization", format!("Bearer {}", &self.auth))
+            .header("Authorization", format!("Bearer {}", &self.settings.auth))
             .header("Content-Type", "application/json");
         if let Some(body) = body {
             request = request.json(&body);
         }
+        
         let result = request.send().await?;
+        let status = result.status();
+        if status.is_client_error() || status.is_server_error() {
+            let t = result.text().await?;
+            Err(eyre!("Request failed (response: {}).", t))
+        } else {
+            let t: T = result.json().await?;
+            Ok(t)
+        }
+    }
 
-        let t: T = result.json().await?;
-        Ok(t)
+    async fn get_repository_data(&self) -> Result<GitLabRepository> {
+        self.call::<GitLabRepository, i32>(Method::GET, "", None)
+            .await
     }
 }
 
 #[async_trait]
 impl VersionControl for GitLab {
-    fn init(hostname: String, repo: String, auth: String) -> Self {
+    fn init(hostname: String, repo: String, settings: VersionControlSettings) -> Self {
         let client = Client::new();
         GitLab {
-            auth,
+            settings,
             client,
             hostname,
             repo,
         }
     }
-    async fn create_pr(&self, pr: CreatePullRequest) -> Result<PullRequest> {
+    async fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {
+        pr.target = pr.target.or(self.settings.default_branch.clone());
+        if pr.target.is_none() {
+            let GitLabRepository { default_branch, .. } = self.get_repository_data().await?;
+            pr.target = Some(default_branch);
+        }
         let new_pr: GitLabPullRequest = self
             .call(
                 Method::POST,
@@ -185,7 +221,7 @@ impl VersionControl for GitLab {
         let prs: Vec<GitLabPullRequest> = self
             .call(
                 Method::GET,
-                &format!("/merge_requests?state=opened&source_branch={}", branch),
+                &format!("/merge_requests?source_branch={branch}"),
                 None as Option<i32>,
             )
             .await?;

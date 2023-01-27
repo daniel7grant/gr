@@ -3,15 +3,17 @@ use color_eyre::{
     Result,
 };
 use dirs::config_dir;
-use serde::Deserialize;
-use std::{collections::HashMap, fs::read_to_string};
+use gr::vcs::common::VersionControlSettings;
+use serde::{Deserialize, Serialize};
+use std::{collections::HashMap, fs::read_to_string, fs::write};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct RepositoryConfig {
-    pub auth: String,
+    pub auth: Option<String>,
+    pub default_branch: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct VcsConfig {
     #[serde(rename = "type")]
     pub vcs_type: Option<String>,
@@ -57,17 +59,27 @@ impl Configuration {
         Ok(Configuration { vcs })
     }
 
-    pub fn find_type(&self, hostname: &str) -> Option<String> {
-        let vcs = self.vcs.get(hostname);
-        vcs.and_then(|v| v.vcs_type.clone())
+    pub fn save(self) -> Result<()> {
+        let config_file_path = Configuration::get_default_config_file_path()?;
+        let content = serde_json::to_string_pretty(&self.vcs).wrap_err("Cannot serialize data.")?;
+        write(&config_file_path, content).wrap_err(eyre!(
+            "Cannot write to configuration file {}.",
+            &config_file_path
+        ))?;
+
+        Ok(())
     }
 
-    pub fn find_auth(&self, hostname: &str, repo: &str) -> Option<String> {
+    pub fn find_settings(&self, hostname: &str, repo: &str) -> Option<VersionControlSettings> {
         let vcs = self.vcs.get(hostname);
         vcs.map(|v| {
-            v.repositories
-                .get(repo)
-                .map_or(v.auth.clone(), |r| r.auth.clone())
+            let r = v.repositories.get(repo);
+
+            VersionControlSettings {
+                auth: r.and_then(|r| r.auth.clone()).unwrap_or(v.auth.clone()),
+                default_branch: r.and_then(|r| r.default_branch.clone()),
+                vcs_type: v.vcs_type.clone(),
+            }
         })
     }
 }

@@ -1,6 +1,6 @@
 use crate::cmd::{
     args::{Commands, PrCommands},
-    config::Configuration,
+    config::{Configuration, RepositoryConfig},
 };
 use color_eyre::{
     eyre::{eyre, ContextCompat},
@@ -9,7 +9,7 @@ use color_eyre::{
 use gr::git::{git::LocalRepository, url::parse_url};
 use gr::vcs::common::{init_vcs, CreatePullRequest};
 
-pub async fn create(command: Commands, conf: Configuration) -> Result<()> {
+pub async fn create(command: Commands, mut conf: Configuration) -> Result<()> {
     if let Commands::Pr(PrCommands::Create {
         message,
         description,
@@ -24,25 +24,42 @@ pub async fn create(command: Commands, conf: Configuration) -> Result<()> {
         let (remote_url, remote_branch) = repo.get_remote_branch(branch)?;
         let (hostname, repo) = parse_url(&remote_url)?;
 
-        let vcs_type = conf.find_type(&hostname);
-        let auth = conf.find_auth(&hostname, &repo).wrap_err(eyre!(
+        let settings = conf.find_settings(&hostname, &repo).wrap_err(eyre!(
             "Authentication not found for {} {}.",
             &hostname,
             &repo
         ))?;
 
-        let vcs = init_vcs(hostname, repo, auth, vcs_type);
+        let is_default_branch = target.is_none();
+
+        let vcs = init_vcs(hostname.clone(), repo.clone(), settings);
 
         let pr = vcs
             .create_pr(CreatePullRequest {
                 title: message,
                 description: description.unwrap_or_default(),
                 source: remote_branch,
-                target: target.unwrap_or("master".to_string()),
+                target,
                 close_source_branch: close,
             })
             .await?;
         pr.show(open);
+
+        // Save default branch to config for caching
+        if is_default_branch {
+            conf.vcs.entry(hostname).and_modify(|host| {
+                host.repositories
+                    .entry(repo)
+                    .and_modify(|repo| repo.default_branch = Some(pr.target.clone()))
+                    .or_insert(RepositoryConfig {
+                        auth: None,
+                        default_branch: Some(pr.target.clone()),
+                    });
+            });
+
+            conf.save()?;
+        }
+
         Ok(())
     } else {
         Err(eyre!("Invalid command!"))

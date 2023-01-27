@@ -1,11 +1,13 @@
-use super::common::{CreatePullRequest, PullRequest, PullRequestState, User, VersionControl};
+use super::common::{
+    CreatePullRequest, PullRequest, PullRequestState, User, VersionControl, VersionControlSettings,
+};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use color_eyre::{eyre::eyre, Result};
 use reqwest::{Client, Method};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct GitHubUser {
     pub id: u32,
     pub login: String,
@@ -16,6 +18,22 @@ impl From<GitHubUser> for User {
         let GitHubUser { login, .. } = user;
         User { username: login }
     }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct GitHubRepository {
+    name: String,
+    full_name: String,
+    private: bool,
+    owner: GitHubUser,
+    html_url: String,
+    description: Option<String>,
+    created_at: DateTime<Utc>,
+    updated_at: DateTime<Utc>,
+    stargazers_count: u32,
+    archived: bool,
+    disabled: bool,
+    default_branch: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -114,13 +132,14 @@ impl From<CreatePullRequest> for GitHubCreatePullRequest {
             title,
             body: description,
             head: source,
-            base: destination,
+            // We are never supposed to fallback to this, but handle it
+            base: destination.unwrap_or("master".to_string()),
         }
     }
 }
 
 pub struct GitHub {
-    auth: String,
+    settings: VersionControlSettings,
     client: Client,
     repo: String,
 }
@@ -139,25 +158,45 @@ impl GitHub {
                 format!("https://api.github.com/repos/{}{}", self.repo, url),
             )
             .header("User-Agent", "gr")
-            .header("Authorization", format!("Bearer {}", &self.auth))
+            .header("Authorization", format!("Bearer {}", &self.settings.auth))
             .header("Content-Type", "application/json");
         if let Some(body) = body {
             request = request.json(&body);
         }
+        
         let result = request.send().await?;
+        let status = result.status();
+        if status.is_client_error() || status.is_server_error() {
+            let t = result.text().await?;
+            Err(eyre!("Request failed (response: {}).", t))
+        } else {
+            let t: T = result.json().await?;
+            Ok(t)
+        }
+    }
 
-        let t: T = result.json().await?;
-        Ok(t)
+    async fn get_repository_data(&self) -> Result<GitHubRepository> {
+        self.call::<GitHubRepository, i32>(Method::GET, "", None)
+            .await
     }
 }
 
 #[async_trait]
 impl VersionControl for GitHub {
-    fn init(_: String, repo: String, auth: String) -> Self {
+    fn init(_: String, repo: String, settings: VersionControlSettings) -> Self {
         let client = Client::new();
-        GitHub { auth, client, repo }
+        GitHub {
+            settings,
+            client,
+            repo,
+        }
     }
-    async fn create_pr(&self, pr: CreatePullRequest) -> Result<PullRequest> {
+    async fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {
+        pr.target = pr.target.or(self.settings.default_branch.clone());
+        if pr.target.is_none() {
+            let GitHubRepository { default_branch, .. } = self.get_repository_data().await?;
+            pr.target = Some(default_branch);
+        }
         let new_pr: GitHubPullRequest = self
             .call(
                 Method::POST,
@@ -172,7 +211,7 @@ impl VersionControl for GitHub {
         let prs: Vec<GitHubPullRequest> = self
             .call(
                 Method::GET,
-                &format!("/pulls?state=open&head={}", branch),
+                &format!("/pulls?head={}", branch),
                 None as Option<i32>,
             )
             .await?;

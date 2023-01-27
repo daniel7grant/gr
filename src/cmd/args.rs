@@ -17,7 +17,7 @@ pub enum PrCommands {
         #[arg(short, long)]
         branch: Option<String>,
         /// Change the repo directory (default: the current directory)
-        #[arg(short, long)]
+        #[arg(long)]
         dir: Option<String>,
         /// Change the target branch (default: the default branch in the repo)
         #[arg(long)]
@@ -35,7 +35,7 @@ pub enum PrCommands {
         #[arg(short, long)]
         branch: Option<String>,
         /// Change the repo directory (default: the current directory)
-        #[arg(short, long)]
+        #[arg(long)]
         dir: Option<String>,
         /// Open the pull request in the browser
         #[arg(long)]
@@ -47,7 +47,7 @@ pub enum PrCommands {
         #[arg(short, long)]
         branch: Option<String>,
         /// Change the repo directory (default: the current directory)
-        #[arg(short, long)]
+        #[arg(long)]
         dir: Option<String>,
     },
 }

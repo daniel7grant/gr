@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use color_eyre::Result;
+use colored::Colorize;
 use open::that as open_in_browser;
 use serde::{Deserialize, Serialize};
 
@@ -42,7 +43,35 @@ impl PullRequest {
             return;
         }
         // On open false or failed browser opening, print the PR
-        println!("{:#?}", self);
+        // println!("{:#?}", self);
+        let max_width_title = if self.title.len() > 73 {
+            format!("{}...", &self.title[0..70])
+        } else {
+            self.title.clone()
+        };
+        let colored_title = match self.state {
+            PullRequestState::Open => max_width_title.bold(),
+            PullRequestState::Closed => max_width_title.bold().red(),
+            PullRequestState::Merged => max_width_title.bold().green(),
+            PullRequestState::Locked => max_width_title.bold().magenta(),
+        };
+        let colored_id = format!("#{}", self.id).dimmed();
+        println!("{:<73} {:>6}", colored_title, colored_id);
+        println!(
+            "{} {} {} {} {} {}",
+            "opened by".dimmed(),
+            self.author.username,
+            "on".dimmed(),
+            self.created_at.format("%Y-%m-%d"),
+            "updated on".dimmed(),
+            self.updated_at.format("%Y-%m-%d")
+        );
+        println!("{} -> {}\n", self.source.blue(), self.target.blue());
+        if self.description.len() > 0 {
+            println!("{}", self.description);
+            println!("---");
+        }
+        println!("{}", self.url.dimmed());
     }
 }
 
@@ -51,13 +80,19 @@ pub struct CreatePullRequest {
     pub title: String,
     pub description: String,
     pub source: String,
-    pub target: String,
+    pub target: Option<String>,
     pub close_source_branch: bool,
 }
 
+#[derive(Debug)]
+pub struct VersionControlSettings {
+    pub auth: String,
+    pub vcs_type: Option<String>,
+    pub default_branch: Option<String>,
+}
 #[async_trait]
 pub trait VersionControl {
-    fn init(hostname: String, repo: String, auth: String) -> Self
+    fn init(hostname: String, repo: String, settings: VersionControlSettings) -> Self
     where
         Self: Sized;
     async fn create_pr(&self, pr: CreatePullRequest) -> Result<PullRequest>;
@@ -67,12 +102,11 @@ pub trait VersionControl {
 pub fn init_vcs(
     hostname: String,
     repo: String,
-    auth: String,
-    ty: Option<String>,
+    settings: VersionControlSettings,
 ) -> Box<dyn VersionControl> {
-    match (hostname.as_str(), ty) {
-        ("github.com", _) => Box::new(GitHub::init(hostname, repo, auth)),
-        ("bitbucket.org", _) => Box::new(Bitbucket::init(hostname, repo, auth)),
-        (_, _) => Box::new(GitLab::init(hostname, repo, auth)),
+    match (hostname.as_str(), &settings.vcs_type) {
+        ("github.com", _) => Box::new(GitHub::init(hostname, repo, settings)),
+        ("bitbucket.org", _) => Box::new(Bitbucket::init(hostname, repo, settings)),
+        (_, _) => Box::new(GitLab::init(hostname, repo, settings)),
     }
 }
