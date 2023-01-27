@@ -3,6 +3,7 @@ mod cmd;
 use cmd::{
     args::{Cli, Commands, PrCommands},
     config::Configuration,
+    login::login::login,
     pr::{create::create, get::get},
 };
 use color_eyre::eyre::eyre;
@@ -16,6 +17,7 @@ async fn main() -> Result<()> {
     let conf = Configuration::parse()?;
 
     match args.command {
+        Commands::Login { .. } => login(args.command, conf).await,
         Commands::Pr(PrCommands::Create { .. }) => create(args.command, conf).await,
         Commands::Pr(PrCommands::Get { .. }) => get(args.command, conf).await,
         Commands::Pr(PrCommands::Open { branch, dir }) => {

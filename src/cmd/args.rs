@@ -54,6 +54,14 @@ pub enum PrCommands {
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
+    /// Login to a VCS with a token
+    Login {
+        // The VCS host to login to (e.g. github.com)
+        hostname: Option<String>,
+        // The repo which the authentication should only appeal
+        #[arg(long)]
+        repo: Option<String>,
+    },
     /// Interact with pull requests
     #[command(subcommand)]
     Pr(PrCommands),
