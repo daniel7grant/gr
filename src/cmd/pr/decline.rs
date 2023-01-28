@@ -22,8 +22,10 @@ pub async fn decline(command: Commands, conf: Configuration) -> Result<()> {
         ))?;
 
         let vcs = init_vcs(hostname, repo, settings);
-
-        Err(eyre!("TODO: Call decline for VCSs."))
+        let pr = vcs.get_pr_by_branch(&remote_branch).await?;
+        let pr = vcs.decline_pr(pr.id).await?;
+        pr.show(false);
+        Ok(())
     } else {
         Err(eyre!("Invalid command!"))
     }

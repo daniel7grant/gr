@@ -119,11 +119,11 @@ pub trait VersionControl {
     where
         Self: Sized;
     async fn create_pr(&self, pr: CreatePullRequest) -> Result<PullRequest>;
-    async fn get_pr(&self, branch: &str) -> Result<PullRequest>;
+    async fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest>;
     async fn list_prs(&self, filters: ListPullRequestFilters) -> Result<Vec<PullRequest>>;
-    async fn approve_pr(&self, branch: &str) -> Result<PullRequest>;
-    async fn decline_pr(&self, branch: &str) -> Result<PullRequest>;
-    async fn merge_pr(&self, branch: &str) -> Result<PullRequest>;
+    async fn approve_pr(&self, id: u32) -> Result<()>;
+    async fn decline_pr(&self, id: u32) -> Result<PullRequest>;
+    async fn merge_pr(&self, id: u32) -> Result<PullRequest>;
 }
 
 pub fn init_vcs(

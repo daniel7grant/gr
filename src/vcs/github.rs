@@ -208,7 +208,7 @@ impl VersionControl for GitHub {
 
         Ok(new_pr.into())
     }
-    async fn get_pr(&self, branch: &str) -> Result<PullRequest> {
+    async fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest> {
         let prs: Vec<GitHubPullRequest> = self
             .call(
                 Method::GET,
@@ -240,13 +240,13 @@ impl VersionControl for GitHub {
 
         Ok(prs.into_iter().map(|pr| pr.into()).collect())
     }
-    async fn approve_pr(&self, branch: &str) -> Result<PullRequest> {
+    async fn approve_pr(&self, id: u32) -> Result<()> {
         todo!();
     }
-    async fn decline_pr(&self, branch: &str) -> Result<PullRequest> {
+    async fn decline_pr(&self, id: u32) -> Result<PullRequest> {
         todo!();
     }
-    async fn merge_pr(&self, branch: &str) -> Result<PullRequest> {
+    async fn merge_pr(&self, id: u32) -> Result<PullRequest> {
         todo!();
     }
 }

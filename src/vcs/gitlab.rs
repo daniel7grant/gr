@@ -1,7 +1,9 @@
+use std::default;
+
 // Documentation: https://docs.gitlab.com/ee/api/api_resources.html
 use super::common::{
     CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
-    PullRequestStateFilter, User, VersionControl, VersionControlSettings, PullRequestUserFilter,
+    PullRequestStateFilter, PullRequestUserFilter, User, VersionControl, VersionControlSettings,
 };
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -22,6 +24,17 @@ impl From<GitLabUser> for User {
         let GitLabUser { username, .. } = user;
         User { username }
     }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct GitLabApprovalUser {
+    user: GitLabUser,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct GitLabApproval {
+    approved: bool,
+    approved_by: Vec<GitLabApprovalUser>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -146,6 +159,31 @@ impl From<CreatePullRequest> for GitLabCreatePullRequest {
     }
 }
 
+#[derive(Debug, Default, Deserialize, Serialize)]
+pub enum GitLabUpdatePullRequestStateEvent {
+    #[serde(rename = "reopen")]
+    Reopen,
+    #[default]
+    #[serde(rename = "close")]
+    Close,
+}
+
+#[derive(Debug, Default, Deserialize, Serialize)]
+pub struct GitLabUpdatePullRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_branch: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_branch: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remove_source_branch: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state_event: Option<GitLabUpdatePullRequestStateEvent>,
+}
+
 pub struct GitLab {
     settings: VersionControlSettings,
     client: Client,
@@ -221,7 +259,7 @@ impl VersionControl for GitLab {
 
         Ok(new_pr.into())
     }
-    async fn get_pr(&self, branch: &str) -> Result<PullRequest> {
+    async fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest> {
         let prs: Vec<GitLabPullRequest> = self
             .call(
                 Method::GET,
@@ -257,13 +295,37 @@ impl VersionControl for GitLab {
 
         Ok(prs.into_iter().map(|pr| pr.into()).collect())
     }
-    async fn approve_pr(&self, branch: &str) -> Result<PullRequest> {
-        todo!();
+    async fn approve_pr(&self, id: u32) -> Result<()> {
+        let _: GitLabApproval = self
+            .call(
+                Method::POST,
+                &format!("/merge_requests/{id}/approve"),
+                None as Option<i32>,
+            )
+            .await?;
+
+        Ok(())
     }
-    async fn decline_pr(&self, branch: &str) -> Result<PullRequest> {
-        todo!();
+    async fn decline_pr(&self, id: u32) -> Result<PullRequest> {
+        let closing = GitLabUpdatePullRequest {
+            state_event: Some(GitLabUpdatePullRequestStateEvent::Close),
+            ..GitLabUpdatePullRequest::default()
+        };
+        let pr: GitLabPullRequest = self
+            .call(Method::PUT, &format!("/merge_requests/{id}"), Some(closing))
+            .await?;
+
+        Ok(pr.into())
     }
-    async fn merge_pr(&self, branch: &str) -> Result<PullRequest> {
-        todo!();
+    async fn merge_pr(&self, id: u32) -> Result<PullRequest> {
+        let pr: GitLabPullRequest = self
+            .call(
+                Method::PUT,
+                &format!("/merge_requests/{id}/merge"),
+                None as Option<i32>,
+            )
+            .await?;
+
+        Ok(pr.into())
     }
 }
