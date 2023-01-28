@@ -123,7 +123,7 @@ pub trait VersionControl {
     async fn list_prs(&self, filters: ListPullRequestFilters) -> Result<Vec<PullRequest>>;
     async fn approve_pr(&self, id: u32) -> Result<()>;
     async fn decline_pr(&self, id: u32) -> Result<PullRequest>;
-    async fn merge_pr(&self, id: u32) -> Result<PullRequest>;
+    async fn merge_pr(&self, id: u32) -> Result<()>;
 }
 
 pub fn init_vcs(

@@ -23,7 +23,7 @@ pub async fn merge(command: Commands, conf: Configuration) -> Result<()> {
 
         let vcs = init_vcs(hostname, repo, settings);
         let pr = vcs.get_pr_by_branch(&remote_branch).await?;
-        let pr = vcs.merge_pr(pr.id).await?;
+        vcs.merge_pr(pr.id).await?;
         pr.show(false);
         Ok(())
     } else {

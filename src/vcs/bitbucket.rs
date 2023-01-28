@@ -290,7 +290,7 @@ impl VersionControl for Bitbucket {
     async fn decline_pr(&self, id: u32) -> Result<PullRequest> {
         todo!();
     }
-    async fn merge_pr(&self, id: u32) -> Result<PullRequest> {
+    async fn merge_pr(&self, id: u32) -> Result<()> {
         todo!();
     }
 }

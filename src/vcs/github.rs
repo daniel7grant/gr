@@ -43,7 +43,7 @@ pub enum GitHubPullRequestState {
     #[serde(rename = "open")]
     Open,
     #[serde(rename = "closed")]
-    Merged,
+    Closed,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -95,8 +95,8 @@ impl From<GitHubPullRequest> for PullRequest {
             state: match (state, merged_at, locked) {
                 (_, _, true) => PullRequestState::Locked,
                 (GitHubPullRequestState::Open, _, _) => PullRequestState::Open,
-                (GitHubPullRequestState::Merged, Some(_), _) => PullRequestState::Merged,
-                (GitHubPullRequestState::Merged, None, _) => PullRequestState::Closed,
+                (GitHubPullRequestState::Closed, Some(_), _) => PullRequestState::Merged,
+                (GitHubPullRequestState::Closed, None, _) => PullRequestState::Closed,
             },
             title,
             description: body.unwrap_or_default(),
@@ -137,6 +137,24 @@ impl From<CreatePullRequest> for GitHubCreatePullRequest {
             base: destination.unwrap_or("master".to_string()),
         }
     }
+}
+
+#[derive(Debug, Default, Deserialize, Serialize)]
+pub struct GitHubUpdatePullRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub body: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub base: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state: Option<GitHubPullRequestState>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct GitHubPullRequestMerged {
+    merged: bool,
+    message: String
 }
 
 pub struct GitHub {
@@ -240,13 +258,29 @@ impl VersionControl for GitHub {
 
         Ok(prs.into_iter().map(|pr| pr.into()).collect())
     }
-    async fn approve_pr(&self, id: u32) -> Result<()> {
-        todo!();
+    async fn approve_pr(&self, _: u32) -> Result<()> {
+        todo!()
     }
     async fn decline_pr(&self, id: u32) -> Result<PullRequest> {
-        todo!();
+        let closing = GitHubUpdatePullRequest {
+            state: Some(GitHubPullRequestState::Closed),
+            ..GitHubUpdatePullRequest::default()
+        };
+        let pr: GitHubPullRequest = self
+            .call(Method::PATCH, &format!("/pulls/{id}"), Some(closing))
+            .await?;
+
+        Ok(pr.into())
     }
-    async fn merge_pr(&self, id: u32) -> Result<PullRequest> {
+    async fn merge_pr(&self, id: u32) -> Result<()> {
+        let _: GitHubPullRequestMerged = self
+            .call(
+                Method::PUT,
+                &format!("/pulls/{id}/merge"),
+                None as Option<i32>,
+            )
+            .await?;
+
         todo!();
     }
 }

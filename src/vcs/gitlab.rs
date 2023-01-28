@@ -1,5 +1,3 @@
-use std::default;
-
 // Documentation: https://docs.gitlab.com/ee/api/api_resources.html
 use super::common::{
     CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
@@ -317,8 +315,8 @@ impl VersionControl for GitLab {
 
         Ok(pr.into())
     }
-    async fn merge_pr(&self, id: u32) -> Result<PullRequest> {
-        let pr: GitLabPullRequest = self
+    async fn merge_pr(&self, id: u32) -> Result<()> {
+        let _: GitLabPullRequest = self
             .call(
                 Method::PUT,
                 &format!("/merge_requests/{id}/merge"),
@@ -326,6 +324,6 @@ impl VersionControl for GitLab {
             )
             .await?;
 
-        Ok(pr.into())
+        Ok(())
     }
 }
