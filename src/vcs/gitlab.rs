@@ -1,5 +1,8 @@
 // Documentation: https://docs.gitlab.com/ee/api/api_resources.html
-use super::common::{CreatePullRequest, PullRequest, PullRequestState, User, VersionControl, VersionControlSettings, ListPullRequestFilters};
+use super::common::{
+    CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
+    PullRequestStateFilter, User, VersionControl, VersionControlSettings, PullRequestUserFilter,
+};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use color_eyre::{eyre::eyre, Result};
@@ -173,7 +176,7 @@ impl GitLab {
         if let Some(body) = body {
             request = request.json(&body);
         }
-        
+
         let result = request.send().await?;
         let status = result.status();
         if status.is_client_error() || status.is_server_error() {
@@ -233,7 +236,26 @@ impl VersionControl for GitLab {
         }
     }
     async fn list_prs(&self, filters: ListPullRequestFilters) -> Result<Vec<PullRequest>> {
-        todo!();
+        let scope_param = match filters.author {
+            PullRequestUserFilter::All => "?scope=all",
+            PullRequestUserFilter::Me => "?scope=created_by_me",
+        };
+        let state_param = match filters.state {
+            PullRequestStateFilter::Open => "&state=opened",
+            PullRequestStateFilter::Closed => "&state=closed",
+            PullRequestStateFilter::Merged => "&state=merged",
+            PullRequestStateFilter::Locked => "&state=locked",
+            PullRequestStateFilter::All => "",
+        };
+        let prs: Vec<GitLabPullRequest> = self
+            .call(
+                Method::GET,
+                &format!("/merge_requests{scope_param}{state_param}"),
+                None as Option<i32>,
+            )
+            .await?;
+
+        Ok(prs.into_iter().map(|pr| pr.into()).collect())
     }
     async fn approve_pr(&self, branch: &str) -> Result<PullRequest> {
         todo!();

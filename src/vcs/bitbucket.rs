@@ -1,6 +1,7 @@
 // Documentation: https://developer.atlassian.com/cloud/bitbucket/rest/intro/
 use super::common::{
-    CreatePullRequest, PullRequest, PullRequestState, User, VersionControl, VersionControlSettings, ListPullRequestFilters,
+    CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
+    PullRequestStateFilter, User, VersionControl, VersionControlSettings,
 };
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -271,7 +272,17 @@ impl VersionControl for Bitbucket {
             .wrap_err(eyre!("Pull request on branch {branch} not found."))
     }
     async fn list_prs(&self, filters: ListPullRequestFilters) -> Result<Vec<PullRequest>> {
-        todo!();
+        let state_param = match filters.state {
+            PullRequestStateFilter::Open => "?state=OPEN",
+            PullRequestStateFilter::Closed => "?state=DECLINED",
+            PullRequestStateFilter::Merged => "?state=MERGED",
+            PullRequestStateFilter::Locked | PullRequestStateFilter::All => "",
+        };
+        let prs: Vec<BitbucketPullRequest> = self
+            .call_paginated(&format!("/pullrequests{state_param}"))
+            .await?;
+
+        Ok(prs.into_iter().map(|pr| pr.into()).collect())
     }
     async fn approve_pr(&self, branch: &str) -> Result<PullRequest> {
         todo!();

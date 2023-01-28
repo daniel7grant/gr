@@ -1,6 +1,7 @@
 // Documentation: https://docs.github.com/en/rest/quickstart
 use super::common::{
-    CreatePullRequest, PullRequest, PullRequestState, User, VersionControl, VersionControlSettings, ListPullRequestFilters,
+    CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
+    PullRequestStateFilter, User, VersionControl, VersionControlSettings,
 };
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -164,7 +165,7 @@ impl GitHub {
         if let Some(body) = body {
             request = request.json(&body);
         }
-        
+
         let result = request.send().await?;
         let status = result.status();
         if status.is_client_error() || status.is_server_error() {
@@ -223,7 +224,22 @@ impl VersionControl for GitHub {
         }
     }
     async fn list_prs(&self, filters: ListPullRequestFilters) -> Result<Vec<PullRequest>> {
-        todo!();
+        let state = match filters.state {
+            PullRequestStateFilter::Open => "open",
+            PullRequestStateFilter::Closed
+            | PullRequestStateFilter::Merged
+            | PullRequestStateFilter::Locked => "closed",
+            PullRequestStateFilter::All => "all",
+        };
+        let prs: Vec<GitHubPullRequest> = self
+            .call(
+                Method::GET,
+                &format!("/pulls?state={state}"),
+                None as Option<i32>,
+            )
+            .await?;
+
+        Ok(prs.into_iter().map(|pr| pr.into()).collect())
     }
     async fn approve_pr(&self, branch: &str) -> Result<PullRequest> {
         todo!();
