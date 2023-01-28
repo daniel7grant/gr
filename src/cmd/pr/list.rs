@@ -1,5 +1,5 @@
 use crate::cmd::{
-    args::{Commands, PrCommands},
+    args::{Commands, PrCommands, StateFilter, UserFilter},
     config::Configuration,
 };
 use color_eyre::{
@@ -7,14 +7,14 @@ use color_eyre::{
     Result,
 };
 use colored::Colorize;
-use gr::vcs::common::init_vcs;
+use gr::vcs::common::{init_vcs, PullRequestStateFilter, PullRequestUserFilter};
 use gr::{
     git::{git::LocalRepository, url::parse_url},
     vcs::common::{ListPullRequestFilters, PullRequestState},
 };
 
 pub async fn list(command: Commands, conf: Configuration) -> Result<()> {
-    if let Commands::Pr(PrCommands::List { dir }) = command {
+    if let Commands::Pr(PrCommands::List { author, dir, state }) = command {
         let repo = LocalRepository::init(dir)?;
         // Find remote from branch upstream, or fallback to origin or any remote
         let remote_url = repo
@@ -31,7 +31,21 @@ pub async fn list(command: Commands, conf: Configuration) -> Result<()> {
 
         let vcs = init_vcs(hostname, repo, settings);
 
-        let prs = vcs.list_prs(ListPullRequestFilters::default()).await?;
+        let prs = vcs
+            .list_prs(ListPullRequestFilters {
+                state: match state {
+                    Some(StateFilter::Open) | None => PullRequestStateFilter::Open,
+                    Some(StateFilter::Closed) => PullRequestStateFilter::Closed,
+                    Some(StateFilter::Merged) => PullRequestStateFilter::Merged,
+                    Some(StateFilter::Locked) => PullRequestStateFilter::Locked,
+                    Some(StateFilter::All) => PullRequestStateFilter::All,
+                },
+                author: match author {
+                    Some(UserFilter::Me) => PullRequestUserFilter::Me,
+                    Some(UserFilter::All) | None => PullRequestUserFilter::All,
+                }
+            })
+            .await?;
 
         for pr in prs {
             let max_width_title = if pr.title.len() > 73 {
