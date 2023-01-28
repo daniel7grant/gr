@@ -4,6 +4,17 @@ use std::io;
 use std::process;
 
 #[derive(Debug, Subcommand)]
+#[command(after_help = "Examples:
+
+Create pull request on current branch:
+$ gr pr create -m 'PR title'
+
+Get information about the current branch PR:
+$ gr pr get
+
+Merge the current branch PR:
+$ gr pr merge
+")]
 pub enum PrCommands {
     /// Create pull request for the current branch
     Create {
@@ -50,15 +61,52 @@ pub enum PrCommands {
         #[arg(long)]
         dir: Option<String>,
     },
+    /// List pull requests for the current repo
+    List {
+        /// Change the repo directory (default: the current directory)
+        #[arg(long)]
+        dir: Option<String>,
+    },
+    /// Approve the pull request for the current branch
+    Approve {
+        #[arg(short, long)]
+        branch: Option<String>,
+        /// Change the repo directory (default: the current directory)
+        #[arg(long)]
+        dir: Option<String>,
+    },
+    /// Merge the pull request for the current branch
+    Merge {
+        #[arg(short, long)]
+        branch: Option<String>,
+        /// Change the repo directory (default: the current directory)
+        #[arg(long)]
+        dir: Option<String>,
+    },
+    /// Decline (close) the pull request for the current branch
+    Decline {
+        #[arg(short, long)]
+        branch: Option<String>,
+        /// Change the repo directory (default: the current directory)
+        #[arg(long)]
+        dir: Option<String>,
+    },
 }
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    /// Login to a VCS with a token
+    #[command(after_help = "Examples:
+
+Login to the current repo's remote:
+$ gr login
+
+Login to arbitrary remote:
+$ gr login github.com")]
+    /// Login to a remote with a token
     Login {
-        // The VCS host to login to (e.g. github.com)
+        /// The host to login to (e.g. github.com, default: current repo)
         hostname: Option<String>,
-        // The repo which the authentication should only appeal
+        /// The repo which the authentication should only appeal
         #[arg(long)]
         repo: Option<String>,
     },
@@ -74,11 +122,14 @@ pub enum Commands {
 #[command(about = "Interact with remote repositories like you interact with git", long_about = None)]
 #[command(after_help = "Examples:
 
-Get information about the current branch PR:
-$ gr pr get
+Login to the current repo's remote:
+$ gr login
 
 Create pull request on current branch:
 $ gr pr create -m 'PR title'
+
+Get information about the current branch PR:
+$ gr pr get
 
 Generate bash completion:
 $ source <(gr completion bash)")]
