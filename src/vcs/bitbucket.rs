@@ -1,6 +1,6 @@
 // Documentation: https://developer.atlassian.com/cloud/bitbucket/rest/intro/
 use super::common::{
-    CreatePullRequest, PullRequest, PullRequestState, User, VersionControl, VersionControlSettings,
+    CreatePullRequest, PullRequest, PullRequestState, User, VersionControl, VersionControlSettings, ListPullRequestFilters,
 };
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};

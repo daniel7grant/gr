@@ -1,5 +1,5 @@
 // Documentation: https://docs.gitlab.com/ee/api/api_resources.html
-use super::common::{CreatePullRequest, PullRequest, PullRequestState, User, VersionControl, VersionControlSettings};
+use super::common::{CreatePullRequest, PullRequest, PullRequestState, User, VersionControl, VersionControlSettings, ListPullRequestFilters};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use color_eyre::{eyre::eyre, Result};
