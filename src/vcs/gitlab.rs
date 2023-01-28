@@ -1,3 +1,4 @@
+// Documentation: https://docs.gitlab.com/ee/api/api_resources.html
 use super::common::{CreatePullRequest, PullRequest, PullRequestState, User, VersionControl, VersionControlSettings};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -230,5 +231,17 @@ impl VersionControl for GitLab {
             Some(pr) => Ok(pr.into()),
             None => Err(eyre!("Pull request on branch {branch} not found.")),
         }
+    }
+    async fn list_prs(&self, filters: ListPullRequestFilters) -> Result<Vec<PullRequest>> {
+        todo!();
+    }
+    async fn approve_pr(&self, branch: &str) -> Result<PullRequest> {
+        todo!();
+    }
+    async fn decline_pr(&self, branch: &str) -> Result<PullRequest> {
+        todo!();
+    }
+    async fn merge_pr(&self, branch: &str) -> Result<PullRequest> {
+        todo!();
     }
 }

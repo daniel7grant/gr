@@ -1,3 +1,4 @@
+// Documentation: https://docs.github.com/en/rest/quickstart
 use super::common::{
     CreatePullRequest, PullRequest, PullRequestState, User, VersionControl, VersionControlSettings,
 };
@@ -220,5 +221,17 @@ impl VersionControl for GitHub {
             Some(pr) => Ok(pr.into()),
             None => Err(eyre!("Pull request on branch {branch} not found.")),
         }
+    }
+    async fn list_prs(&self, filters: ListPullRequestFilters) -> Result<Vec<PullRequest>> {
+        todo!();
+    }
+    async fn approve_pr(&self, branch: &str) -> Result<PullRequest> {
+        todo!();
+    }
+    async fn decline_pr(&self, branch: &str) -> Result<PullRequest> {
+        todo!();
+    }
+    async fn merge_pr(&self, branch: &str) -> Result<PullRequest> {
+        todo!();
     }
 }

@@ -84,6 +84,29 @@ pub struct CreatePullRequest {
     pub close_source_branch: bool,
 }
 
+#[derive(Debug, Default, Deserialize, Serialize)]
+pub enum PullRequestUserFilter {
+    Me,
+    #[default]
+    All,
+}
+
+#[derive(Debug, Default, Deserialize, Serialize)]
+pub enum PullRequestStateFilter {
+    #[default]
+    Open,
+    Closed,
+    Merged,
+    Locked,
+    All,
+}
+
+#[derive(Debug, Default, Deserialize, Serialize)]
+pub struct ListPullRequestFilters {
+    pub author: PullRequestUserFilter,
+    pub state: PullRequestStateFilter,
+}
+
 #[derive(Debug)]
 pub struct VersionControlSettings {
     pub auth: String,
@@ -97,6 +120,10 @@ pub trait VersionControl {
         Self: Sized;
     async fn create_pr(&self, pr: CreatePullRequest) -> Result<PullRequest>;
     async fn get_pr(&self, branch: &str) -> Result<PullRequest>;
+    async fn list_prs(&self, filters: ListPullRequestFilters) -> Result<Vec<PullRequest>>;
+    async fn approve_pr(&self, branch: &str) -> Result<PullRequest>;
+    async fn decline_pr(&self, branch: &str) -> Result<PullRequest>;
+    async fn merge_pr(&self, branch: &str) -> Result<PullRequest>;
 }
 
 pub fn init_vcs(

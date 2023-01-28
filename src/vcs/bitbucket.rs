@@ -1,4 +1,7 @@
-use super::common::{CreatePullRequest, PullRequest, PullRequestState, User, VersionControl, VersionControlSettings};
+// Documentation: https://developer.atlassian.com/cloud/bitbucket/rest/intro/
+use super::common::{
+    CreatePullRequest, PullRequest, PullRequestState, User, VersionControl, VersionControlSettings,
+};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use color_eyre::{eyre::eyre, eyre::ContextCompat, Result};
@@ -202,7 +205,7 @@ impl Bitbucket {
         if let Some(body) = &body {
             request = request.json(body);
         }
-         
+
         let result = request.send().await?;
         let status = result.status();
         if status.is_client_error() || status.is_server_error() {
@@ -266,5 +269,17 @@ impl VersionControl for Bitbucket {
             .find(|pr| pr.source.branch.name == branch)
             .map(|pr| pr.into())
             .wrap_err(eyre!("Pull request on branch {branch} not found."))
+    }
+    async fn list_prs(&self, filters: ListPullRequestFilters) -> Result<Vec<PullRequest>> {
+        todo!();
+    }
+    async fn approve_pr(&self, branch: &str) -> Result<PullRequest> {
+        todo!();
+    }
+    async fn decline_pr(&self, branch: &str) -> Result<PullRequest> {
+        todo!();
+    }
+    async fn merge_pr(&self, branch: &str) -> Result<PullRequest> {
+        todo!();
     }
 }
