@@ -46,15 +46,6 @@ pub enum GitHubPullRequestState {
     Merged,
 }
 
-impl From<GitHubPullRequestState> for PullRequestState {
-    fn from(state: GitHubPullRequestState) -> PullRequestState {
-        match state {
-            GitHubPullRequestState::Open => PullRequestState::Open,
-            GitHubPullRequestState::Merged => PullRequestState::Merged,
-        }
-    }
-}
-
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GitHubPullRequestBranch {
     #[serde(rename = "ref")]
@@ -68,12 +59,13 @@ pub struct GitHubPullRequest {
     pub state: GitHubPullRequestState,
     pub locked: bool,
     pub title: String,
-    pub body: String,
+    pub body: Option<String>,
     pub head: GitHubPullRequestBranch,
     pub base: GitHubPullRequestBranch,
     pub html_url: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub merged_at: Option<DateTime<Utc>>,
     pub user: GitHubUser,
     pub merged_by: Option<GitHubUser>,
     pub requested_reviewers: Option<Vec<GitHubUser>>,
@@ -85,12 +77,14 @@ impl From<GitHubPullRequest> for PullRequest {
             number,
             state,
             title,
+            locked,
             body,
             head,
             base,
             html_url,
             created_at,
             updated_at,
+            merged_at,
             user,
             merged_by,
             requested_reviewers,
@@ -98,9 +92,14 @@ impl From<GitHubPullRequest> for PullRequest {
         } = pr;
         PullRequest {
             id: number,
-            state: state.into(),
+            state: match (state, merged_at, locked) {
+                (_, _, true) => PullRequestState::Locked,
+                (GitHubPullRequestState::Open, _, _) => PullRequestState::Open,
+                (GitHubPullRequestState::Merged, Some(_), _) => PullRequestState::Merged,
+                (GitHubPullRequestState::Merged, None, _) => PullRequestState::Closed,
+            },
             title,
-            description: body,
+            description: body.unwrap_or_default(),
             source: head.branch,
             target: base.branch,
             url: html_url,
@@ -213,7 +212,7 @@ impl VersionControl for GitHub {
         let prs: Vec<GitHubPullRequest> = self
             .call(
                 Method::GET,
-                &format!("/pulls?head={}", branch),
+                &format!("/pulls?state=all&head={}", branch),
                 None as Option<i32>,
             )
             .await?;
