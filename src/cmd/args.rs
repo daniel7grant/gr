@@ -111,8 +111,9 @@ pub enum PrCommands {
         #[arg(long)]
         dir: Option<String>,
     },
-    /// Decline (close) the pull request for the current branch
-    Decline {
+    /// Close (decline) the pull request for the current branch
+    #[command(alias = "decline")]
+    Close {
         #[arg(short, long)]
         branch: Option<String>,
         /// Change the repo directory (default: the current directory)

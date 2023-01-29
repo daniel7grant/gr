@@ -300,7 +300,7 @@ impl VersionControl for Bitbucket {
 
         Ok(())
     }
-    async fn decline_pr(&self, id: u32) -> Result<PullRequest> {
+    async fn close_pr(&self, id: u32) -> Result<PullRequest> {
         let pr: BitbucketPullRequest = self
             .call(
                 Method::POST,

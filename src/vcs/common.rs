@@ -122,7 +122,7 @@ pub trait VersionControl {
     async fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest>;
     async fn list_prs(&self, filters: ListPullRequestFilters) -> Result<Vec<PullRequest>>;
     async fn approve_pr(&self, id: u32) -> Result<()>;
-    async fn decline_pr(&self, id: u32) -> Result<PullRequest>;
+    async fn close_pr(&self, id: u32) -> Result<PullRequest>;
     async fn merge_pr(&self, id: u32) -> Result<()>;
 }
 

@@ -261,7 +261,7 @@ impl VersionControl for GitHub {
     async fn approve_pr(&self, _: u32) -> Result<()> {
         todo!()
     }
-    async fn decline_pr(&self, id: u32) -> Result<PullRequest> {
+    async fn close_pr(&self, id: u32) -> Result<PullRequest> {
         let closing = GitHubUpdatePullRequest {
             state: Some(GitHubPullRequestState::Closed),
             ..GitHubUpdatePullRequest::default()

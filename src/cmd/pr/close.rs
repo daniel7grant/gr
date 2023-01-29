@@ -9,8 +9,8 @@ use color_eyre::{
 use gr::git::{git::LocalRepository, url::parse_url};
 use gr::vcs::common::init_vcs;
 
-pub async fn decline(command: Commands, conf: Configuration) -> Result<()> {
-    if let Commands::Pr(PrCommands::Decline { branch, dir }) = command {
+pub async fn close(command: Commands, conf: Configuration) -> Result<()> {
+    if let Commands::Pr(PrCommands::Close { branch, dir }) = command {
         let repo = LocalRepository::init(dir)?;
         let (remote_url, remote_branch) = repo.get_remote_branch(branch)?;
         let (hostname, repo) = parse_url(&remote_url)?;
@@ -23,7 +23,7 @@ pub async fn decline(command: Commands, conf: Configuration) -> Result<()> {
 
         let vcs = init_vcs(hostname, repo, settings);
         let pr = vcs.get_pr_by_branch(&remote_branch).await?;
-        let pr = vcs.decline_pr(pr.id).await?;
+        let pr = vcs.close_pr(pr.id).await?;
         pr.show(false);
         Ok(())
     } else {

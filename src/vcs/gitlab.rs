@@ -304,7 +304,7 @@ impl VersionControl for GitLab {
 
         Ok(())
     }
-    async fn decline_pr(&self, id: u32) -> Result<PullRequest> {
+    async fn close_pr(&self, id: u32) -> Result<PullRequest> {
         let closing = GitLabUpdatePullRequest {
             state_event: Some(GitLabUpdatePullRequestStateEvent::Close),
             ..GitLabUpdatePullRequest::default()
