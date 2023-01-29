@@ -18,6 +18,7 @@ pub async fn login(command: Commands, mut conf: Configuration) -> Result<()> {
         hostname,
         repo: repo_name,
         dir,
+        token,
     } = command
     {
         // Get hostname and repo and initialize VCS
@@ -33,34 +34,40 @@ pub async fn login(command: Commands, mut conf: Configuration) -> Result<()> {
         };
         let vcs = init_vcs(hostname.clone(), repo, settings);
 
-        // Open URL to have the user save the token
-        let url = vcs.login_url();
-        println!(
-            "To login to {}, create a token and copy the token value.",
-            hostname
-        );
-        if !url.contains("scopes=") {
-            println!("The token needs account, workspace and project read, pull request read and write permissions.");
-            println!("You have to enter you username and the token separated with a colon (e.g. user:ATBB...).");
-        }
-        sleep(Duration::from_millis(500)).await;
-        let can_open = open::that(&url);
-        if can_open.is_err() {
-            println!("Open this page: {}", &url);
-        }
-        sleep(Duration::from_millis(500)).await;
-
-        // Read the token from the user
-        let mut token;
-        loop {
-            token = Text::new("Paste the token here: ")
-                .prompt()
-                .wrap_err("Reading the token failed.")?;
-            match vcs.validate_token(&token) {
-                Ok(_) => break,
-                Err(err) => println!("{}", err.to_string()),
+        // If the token arg is passed, validate and use that
+        let token = if let Some(token) = token {
+            vcs.validate_token(&token).and(Ok(token))?
+        } else {
+            // Otherwise open URL to have the user save the token
+            let url = vcs.login_url();
+            println!(
+                "To login to {}, create a token and copy the token value.",
+                hostname
+            );
+            if !url.contains("scopes=") {
+                println!("The token needs account, workspace and project read, pull request read and write permissions.");
+                println!("You have to enter you username and the token separated with a colon (e.g. user:ATBB...).");
             }
-        }
+            sleep(Duration::from_millis(500)).await;
+            let can_open = open::that(&url);
+            if can_open.is_err() {
+                println!("Open this page: {}", &url);
+            }
+            sleep(Duration::from_millis(500)).await;
+    
+            // Read the token from the user
+            let mut token;
+            loop {
+                token = Text::new("Paste the token here: ")
+                    .prompt()
+                    .wrap_err("Reading the token failed.")?;
+                match vcs.validate_token(&token) {
+                    Ok(_) => break,
+                    Err(err) => println!("{}", err.to_string()),
+                }
+            }
+            token
+        };        
 
         // Modify the token in the configuration
         let host_conf = conf.vcs.entry(hostname);
@@ -81,7 +88,7 @@ pub async fn login(command: Commands, mut conf: Configuration) -> Result<()> {
             }),
         };
         conf.save()?;
-        println!("New configuration saved.");
+        println!("Authentication token saved.");
 
         Ok(())
     } else {
