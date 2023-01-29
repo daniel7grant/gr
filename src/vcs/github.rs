@@ -17,8 +17,11 @@ pub struct GitHubUser {
 
 impl From<GitHubUser> for User {
     fn from(user: GitHubUser) -> User {
-        let GitHubUser { login, .. } = user;
-        User { username: login }
+        let GitHubUser { id, login, .. } = user;
+        User {
+            id: id.to_string(),
+            username: login,
+        }
     }
 }
 
@@ -154,7 +157,7 @@ pub struct GitHubUpdatePullRequest {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GitHubPullRequestMerged {
     merged: bool,
-    message: String
+    message: String,
 }
 
 pub struct GitHub {
@@ -209,6 +212,17 @@ impl VersionControl for GitHub {
             client,
             repo,
         }
+    }
+    async fn get_user_by_name(&self, username: &str) -> Result<User> {
+        let user: GitHubUser = self
+            .call(
+                Method::GET,
+                &format!("/users/{username}"),
+                None as Option<i32>,
+            )
+            .await?;
+
+        Ok(user.into())
     }
     async fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {
         pr.target = pr.target.or(self.settings.default_branch.clone());

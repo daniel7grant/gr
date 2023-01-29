@@ -19,8 +19,8 @@ pub struct GitLabUser {
 
 impl From<GitLabUser> for User {
     fn from(user: GitLabUser) -> User {
-        let GitLabUser { username, .. } = user;
-        User { username }
+        let GitLabUser { id, username, .. } = user;
+        User { id: id.to_string(), username }
     }
 }
 
@@ -239,6 +239,20 @@ impl VersionControl for GitLab {
             client,
             hostname,
             repo,
+        }
+    }
+    async fn get_user_by_name(&self, username: &str) -> Result<User> {
+        let users: Vec<GitLabUser> = self
+            .call(
+                Method::GET,
+                &format!("/users?username={username}"),
+                None as Option<i32>,
+            )
+            .await?;
+
+        match users.into_iter().next() {
+            Some(user) => Ok(user.into()),
+            None => Err(eyre!("User with name {username} not found.")),
         }
     }
     async fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {

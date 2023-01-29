@@ -49,8 +49,15 @@ pub struct BitbucketUser {
 
 impl From<BitbucketUser> for User {
     fn from(user: BitbucketUser) -> User {
-        let BitbucketUser { nickname, .. } = user;
-        User { username: nickname }
+        let BitbucketUser {
+            account_id,
+            nickname,
+            ..
+        } = user;
+        User {
+            id: account_id,
+            username: nickname,
+        }
     }
 }
 
@@ -256,6 +263,11 @@ impl VersionControl for Bitbucket {
             client,
             repo,
         }
+    }
+    async fn get_user_by_name(&self, username: &str) -> Result<User> {
+        // TODO: figure out a way to get an arbitrary user in BitBucket
+        // maybe from the workspaces API?
+        todo!();
     }
     async fn create_pr(&self, pr: CreatePullRequest) -> Result<PullRequest> {
         let new_pr: BitbucketPullRequest = self

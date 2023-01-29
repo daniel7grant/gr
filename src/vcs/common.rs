@@ -9,6 +9,7 @@ use super::{bitbucket::Bitbucket, github::GitHub, gitlab::GitLab};
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct User {
+    pub id: String,
     pub username: String,
 }
 
@@ -118,6 +119,7 @@ pub trait VersionControl {
     fn init(hostname: String, repo: String, settings: VersionControlSettings) -> Self
     where
         Self: Sized;
+    async fn get_user_by_name(&self, username: &str) -> Result<User>;
     async fn create_pr(&self, pr: CreatePullRequest) -> Result<PullRequest>;
     async fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest>;
     async fn list_prs(&self, filters: ListPullRequestFilters) -> Result<Vec<PullRequest>>;
