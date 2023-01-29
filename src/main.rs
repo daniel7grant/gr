@@ -3,7 +3,8 @@ mod cmd;
 use cmd::{
     args::{Cli, Commands, PrCommands},
     config::Configuration,
-    pr::{create::create, get::get},
+    login::login::login,
+    pr::{approve::approve, create::create, decline::decline, get::get, list::list, merge::merge},
 };
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
@@ -16,6 +17,7 @@ async fn main() -> Result<()> {
     let conf = Configuration::parse()?;
 
     match args.command {
+        Commands::Login { .. } => login(args.command, conf).await,
         Commands::Pr(PrCommands::Create { .. }) => create(args.command, conf).await,
         Commands::Pr(PrCommands::Get { .. }) => get(args.command, conf).await,
         Commands::Pr(PrCommands::Open { branch, dir }) => {
@@ -26,6 +28,10 @@ async fn main() -> Result<()> {
             });
             get(command, conf).await
         }
+        Commands::Pr(PrCommands::List { .. }) => list(args.command, conf).await,
+        Commands::Pr(PrCommands::Approve { .. }) => approve(args.command, conf).await,
+        Commands::Pr(PrCommands::Merge { .. }) => merge(args.command, conf).await,
+        Commands::Pr(PrCommands::Decline { .. }) => decline(args.command, conf).await,
         Commands::Completion { .. } => Err(eyre!("Invalid command.")),
     }
 }
