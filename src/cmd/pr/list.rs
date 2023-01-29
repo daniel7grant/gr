@@ -1,5 +1,5 @@
 use crate::cmd::{
-    args::{Commands, PrCommands, StateFilter, UserFilter},
+    args::{Cli, Commands, PrCommands, StateFilter, UserFilter},
     config::Configuration,
 };
 use color_eyre::{
@@ -7,14 +7,17 @@ use color_eyre::{
     Result,
 };
 use colored::Colorize;
-use gr::vcs::common::{init_vcs, PullRequestStateFilter, PullRequestUserFilter};
+use gr::vcs::common::{
+    init_vcs, PullRequestStateFilter, PullRequestUserFilter, VersionControlSettings,
+};
 use gr::{
     git::{git::LocalRepository, url::parse_url},
     vcs::common::{ListPullRequestFilters, PullRequestState},
 };
 
-pub async fn list(command: Commands, conf: Configuration) -> Result<()> {
-    if let Commands::Pr(PrCommands::List { author, dir, state }) = command {
+pub async fn list(args: Cli, conf: Configuration) -> Result<()> {
+    let Cli { command, dir, auth, .. } = args;
+    if let Commands::Pr(PrCommands::List { author, state }) = command {
         let repo = LocalRepository::init(dir)?;
         // Find remote from branch upstream, or fallback to origin or any remote
         let remote_url = repo
@@ -23,11 +26,20 @@ pub async fn list(command: Commands, conf: Configuration) -> Result<()> {
             .or_else(|_| repo.get_remote(None))?;
         let (hostname, repo) = parse_url(&remote_url)?;
 
-        let settings = conf.find_settings(&hostname, &repo).wrap_err(eyre!(
-            "Authentication not found for {} in {}.",
-            &hostname,
-            &repo
-        ))?;
+        // Find settings or use the auth command
+        let settings = conf.find_settings(&hostname, &repo);
+        let settings = if let Some(auth) = auth {
+            VersionControlSettings {
+                auth,
+                ..settings.unwrap_or_default()
+            }
+        } else {
+            settings.wrap_err(eyre!(
+                "Authentication not found for {} in {}.",
+                &hostname,
+                &repo
+            ))?
+        };
 
         let vcs = init_vcs(hostname, repo, settings);
 
@@ -43,7 +55,7 @@ pub async fn list(command: Commands, conf: Configuration) -> Result<()> {
                 author: match author {
                     Some(UserFilter::Me) => PullRequestUserFilter::Me,
                     Some(UserFilter::All) | None => PullRequestUserFilter::All,
-                }
+                },
             })
             .await?;
 

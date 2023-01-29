@@ -109,7 +109,7 @@ pub struct ListPullRequestFilters {
     pub state: PullRequestStateFilter,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct VersionControlSettings {
     pub auth: String,
     pub vcs_type: Option<String>,
@@ -120,6 +120,8 @@ pub trait VersionControl {
     fn init(hostname: String, repo: String, settings: VersionControlSettings) -> Self
     where
         Self: Sized;
+    fn login_url(&self) -> String;
+    fn validate_token(&self, token: &str) -> Result<()>;
     async fn create_pr(&self, pr: CreatePullRequest) -> Result<PullRequest>;
     async fn get_pr_by_id(&self, id: u32) -> Result<PullRequest>;
     async fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest>;

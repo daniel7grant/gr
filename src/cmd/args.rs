@@ -46,12 +46,6 @@ pub enum PrCommands {
         /// The description of the pull request (default: the list of commits)
         #[arg(short, long)]
         description: Option<String>,
-        /// Change the source branch (default: the current branch)
-        #[arg(short, long)]
-        branch: Option<String>,
-        /// Change the repo directory (default: the current directory)
-        #[arg(long)]
-        dir: Option<String>,
         /// Change the target branch (default: the default branch in the repo)
         #[arg(long)]
         target: Option<String>,
@@ -67,25 +61,12 @@ pub enum PrCommands {
     },
     /// Get the open pull request for the current branch
     Get {
-        /// Change the source branch (default: the current branch)
-        #[arg(short, long)]
-        branch: Option<String>,
-        /// Change the repo directory (default: the current directory)
-        #[arg(long)]
-        dir: Option<String>,
         /// Open the pull request in the browser
         #[arg(long)]
         open: bool,
     },
     /// Open the pull request in the browser
-    Open {
-        /// Change the source branch (default: the current branch)
-        #[arg(short, long)]
-        branch: Option<String>,
-        /// Change the repo directory (default: the current directory)
-        #[arg(long)]
-        dir: Option<String>,
-    },
+    Open {},
     /// List pull requests for the current repo
     List {
         /// Filter by PR author
@@ -94,38 +75,18 @@ pub enum PrCommands {
         /// Filter by PR state
         #[arg(long, value_enum)]
         state: Option<StateFilter>,
-        /// Change the repo directory (default: the current directory)
-        #[arg(long)]
-        dir: Option<String>,
     },
     /// Approve the pull request for the current branch
-    Approve {
-        #[arg(short, long)]
-        branch: Option<String>,
-        /// Change the repo directory (default: the current directory)
-        #[arg(long)]
-        dir: Option<String>,
-    },
+    Approve {},
     /// Merge the pull request for the current branch
     Merge {
-        #[arg(short, long)]
-        branch: Option<String>,
-        /// Change the repo directory (default: the current directory)
-        #[arg(long)]
-        dir: Option<String>,
         /// Delete source branch after merging (Gitlab and Bitbucket only)
         #[arg(long)]
         delete: bool,
     },
     /// Close (decline) the pull request for the current branch
     #[command(alias = "decline")]
-    Close {
-        #[arg(short, long)]
-        branch: Option<String>,
-        /// Change the repo directory (default: the current directory)
-        #[arg(long)]
-        dir: Option<String>,
-    },
+    Close {},
 }
 
 #[derive(Debug, Subcommand)]
@@ -144,6 +105,9 @@ $ gr login github.com")]
         /// The repo which the authentication should only appeal
         #[arg(long)]
         repo: Option<String>,
+        /// Use this token to authenticate, instead of interactive login
+        #[arg(long)]
+        token: Option<String>,
     },
     /// Interact with pull requests
     #[command(subcommand)]
@@ -171,6 +135,15 @@ $ source <(gr completion bash)")]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
+    /// Change the source branch (default: the current branch)
+    #[arg(short, long, global = true)]
+    pub branch: Option<String>,
+    /// Change the repo directory (default: the current directory)
+    #[arg(long, global = true)]
+    pub dir: Option<String>,
+    /// Change the authentication token (default: find in configuration)
+    #[arg(long, global = true)]
+    pub auth: Option<String>,
 }
 
 fn print_completions<G: Generator>(gen: G, cmd: &mut Command) {

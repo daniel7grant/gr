@@ -236,6 +236,18 @@ impl VersionControl for GitHub {
             repo,
         }
     }
+    fn login_url(&self) -> String {
+        "https://github.com/settings/tokens/new?description=gr&scopes=repo,project".to_string()
+    }
+    fn validate_token(&self, token: &str) -> Result<()> {
+        if token.starts_with("ghp_") {
+            Err(eyre!("Your GitHub token has to start with `ghp`."))
+        } else if token.len() != 40 {
+            Err(eyre!("Your GitHub token has to be 40 characters long."))
+        } else {
+            Ok(())
+        }
+    }
     async fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {
         let reviewers = pr.reviewers.clone();
         pr.target = pr.target.or(self.settings.default_branch.clone());

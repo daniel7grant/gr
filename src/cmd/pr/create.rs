@@ -1,20 +1,27 @@
 use crate::cmd::{
-    args::{Commands, PrCommands},
+    args::{Cli, Commands, PrCommands},
     config::{Configuration, RepositoryConfig},
 };
 use color_eyre::{
     eyre::{eyre, ContextCompat},
     Result,
 };
-use gr::git::{git::LocalRepository, url::parse_url};
 use gr::vcs::common::{init_vcs, CreatePullRequest};
+use gr::{
+    git::{git::LocalRepository, url::parse_url},
+    vcs::common::VersionControlSettings,
+};
 
-pub async fn create(command: Commands, mut conf: Configuration) -> Result<()> {
+pub async fn create(args: Cli, mut conf: Configuration) -> Result<()> {
+    let Cli {
+        command,
+        branch,
+        dir,
+        auth,
+    } = args;
     if let Commands::Pr(PrCommands::Create {
         message,
         description,
-        branch,
-        dir,
         target,
         delete,
         open,
@@ -25,11 +32,20 @@ pub async fn create(command: Commands, mut conf: Configuration) -> Result<()> {
         let (remote_url, remote_branch) = repo.get_remote_branch(branch)?;
         let (hostname, repo) = parse_url(&remote_url)?;
 
-        let settings = conf.find_settings(&hostname, &repo).wrap_err(eyre!(
-            "Authentication not found for {} {}.",
-            &hostname,
-            &repo
-        ))?;
+        // Find settings or use the auth command
+        let settings = conf.find_settings(&hostname, &repo);
+        let settings = if let Some(auth) = auth {
+            VersionControlSettings {
+                auth,
+                ..settings.unwrap_or_default()
+            }
+        } else {
+            settings.wrap_err(eyre!(
+                "Authentication not found for {} in {}.",
+                &hostname,
+                &repo
+            ))?
+        };
 
         let is_default_branch = target.is_none();
 
