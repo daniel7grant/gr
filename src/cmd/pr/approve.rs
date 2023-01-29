@@ -1,5 +1,5 @@
 use crate::cmd::{
-    args::{Commands, PrCommands},
+    args::{Commands, PrCommands, Cli},
     config::Configuration,
 };
 use color_eyre::{
@@ -12,7 +12,8 @@ use gr::{
     vcs::common::VersionControlSettings,
 };
 
-pub async fn approve(command: Commands, conf: Configuration) -> Result<()> {
+pub async fn approve(args: Cli, conf: Configuration) -> Result<()> {
+    let Cli { command } = args;
     if let Commands::Pr(PrCommands::Approve { branch, dir, auth }) = command {
         let repo = LocalRepository::init(dir)?;
         let (remote_url, remote_branch) = repo.get_remote_branch(branch)?;

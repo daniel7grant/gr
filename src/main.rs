@@ -13,26 +13,26 @@ use color_eyre::Result;
 async fn main() -> Result<()> {
     color_eyre::install()?;
 
-    let args = Cli::parse_args();
+    let mut args = Cli::parse_args();
     let conf = Configuration::parse()?;
 
     match args.command {
-        Commands::Login { .. } => login(args.command, conf).await,
-        Commands::Pr(PrCommands::Create { .. }) => create(args.command, conf).await,
-        Commands::Pr(PrCommands::Get { .. }) => get(args.command, conf).await,
+        Commands::Login { .. } => login(args, conf).await,
+        Commands::Pr(PrCommands::Create { .. }) => create(args, conf).await,
+        Commands::Pr(PrCommands::Get { .. }) => get(args, conf).await,
         Commands::Pr(PrCommands::Open { branch, dir, auth }) => {
-            let command = Commands::Pr(PrCommands::Get {
+            args.command = Commands::Pr(PrCommands::Get {
                 branch,
                 dir,
                 open: true,
                 auth,
             });
-            get(command, conf).await
+            get(args, conf).await
         }
-        Commands::Pr(PrCommands::List { .. }) => list(args.command, conf).await,
-        Commands::Pr(PrCommands::Approve { .. }) => approve(args.command, conf).await,
-        Commands::Pr(PrCommands::Merge { .. }) => merge(args.command, conf).await,
-        Commands::Pr(PrCommands::Close { .. }) => close(args.command, conf).await,
+        Commands::Pr(PrCommands::List { .. }) => list(args, conf).await,
+        Commands::Pr(PrCommands::Approve { .. }) => approve(args, conf).await,
+        Commands::Pr(PrCommands::Merge { .. }) => merge(args, conf).await,
+        Commands::Pr(PrCommands::Close { .. }) => close(args, conf).await,
         Commands::Completion { .. } => Err(eyre!("Invalid command.")),
     }
 }

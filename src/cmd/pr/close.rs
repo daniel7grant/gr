@@ -1,5 +1,5 @@
 use crate::cmd::{
-    args::{Commands, PrCommands},
+    args::{Commands, PrCommands, Cli},
     config::Configuration,
 };
 use color_eyre::{
@@ -9,7 +9,8 @@ use color_eyre::{
 use gr::{git::{git::LocalRepository, url::parse_url}, vcs::common::VersionControlSettings};
 use gr::vcs::common::init_vcs;
 
-pub async fn close(command: Commands, conf: Configuration) -> Result<()> {
+pub async fn close(args: Cli, conf: Configuration) -> Result<()> {
+    let Cli { command } = args;
     if let Commands::Pr(PrCommands::Close { branch, dir, auth }) = command {
         let repo = LocalRepository::init(dir)?;
         let (remote_url, remote_branch) = repo.get_remote_branch(branch)?;

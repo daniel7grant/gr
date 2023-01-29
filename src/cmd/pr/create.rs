@@ -1,5 +1,5 @@
 use crate::cmd::{
-    args::{Commands, PrCommands},
+    args::{Commands, PrCommands, Cli},
     config::{Configuration, RepositoryConfig},
 };
 use color_eyre::{
@@ -12,7 +12,8 @@ use gr::{
     vcs::common::VersionControlSettings,
 };
 
-pub async fn create(command: Commands, mut conf: Configuration) -> Result<()> {
+pub async fn create(args: Cli, mut conf: Configuration) -> Result<()> {
+    let Cli { command } = args;
     if let Commands::Pr(PrCommands::Create {
         message,
         description,

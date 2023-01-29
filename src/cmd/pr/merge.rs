@@ -1,5 +1,5 @@
 use crate::cmd::{
-    args::{Commands, PrCommands},
+    args::{Commands, PrCommands, Cli},
     config::Configuration,
 };
 use color_eyre::{
@@ -12,7 +12,8 @@ use gr::{
     vcs::common::VersionControlSettings,
 };
 
-pub async fn merge(command: Commands, conf: Configuration) -> Result<()> {
+pub async fn merge(args: Cli, conf: Configuration) -> Result<()> {
+    let Cli { command } = args;
     if let Commands::Pr(PrCommands::Merge {
         branch,
         dir,

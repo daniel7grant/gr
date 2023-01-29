@@ -1,5 +1,5 @@
 use crate::cmd::{
-    args::{Commands, PrCommands, StateFilter, UserFilter},
+    args::{Commands, PrCommands, StateFilter, UserFilter, Cli},
     config::Configuration,
 };
 use color_eyre::{
@@ -15,7 +15,8 @@ use gr::{
     vcs::common::{ListPullRequestFilters, PullRequestState},
 };
 
-pub async fn list(command: Commands, conf: Configuration) -> Result<()> {
+pub async fn list(args: Cli, conf: Configuration) -> Result<()> {
+    let Cli { command } = args;
     if let Commands::Pr(PrCommands::List {
         author,
         dir,

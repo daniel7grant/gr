@@ -1,5 +1,5 @@
 use crate::cmd::{
-    args::Commands,
+    args::{Commands, Cli},
     config::{Configuration, RepositoryConfig},
 };
 use color_eyre::{
@@ -13,7 +13,8 @@ use gr::{
 use inquire::Text;
 use tokio::time::{sleep, Duration};
 
-pub async fn login(command: Commands, mut conf: Configuration) -> Result<()> {
+pub async fn login(args: Cli, mut conf: Configuration) -> Result<()> {
+    let Cli { command } = args;
     if let Commands::Login {
         hostname,
         repo: repo_name,
