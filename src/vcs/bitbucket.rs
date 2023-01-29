@@ -295,6 +295,16 @@ impl VersionControl for Bitbucket {
             repo,
         }
     }
+    fn login_url(&self) -> String {
+        "https://bitbucket.org/account/settings/app-passwords/new".to_string()
+    }
+    fn validate_token(&self, token: &str) -> Result<()> {
+        if !token.contains(":") {
+            Err(eyre!("Enter your Bitbucket username and the token, separated with a colon (user:ABBT...)."))
+        } else {
+            Ok(())
+        }
+    }
     async fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {
         let reviewers = self.get_workspace_users(pr.reviewers.clone()).await?;
         pr.reviewers = reviewers.into_iter().map(|r| r.uuid).collect();

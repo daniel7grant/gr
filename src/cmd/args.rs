@@ -144,6 +144,9 @@ $ gr login github.com")]
         /// The repo which the authentication should only appeal
         #[arg(long)]
         repo: Option<String>,
+        /// Change the repo directory (default: the current directory)
+        #[arg(long)]
+        dir: Option<String>,
     },
     /// Interact with pull requests
     #[command(subcommand)]

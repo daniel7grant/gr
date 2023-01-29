@@ -264,6 +264,16 @@ impl VersionControl for GitLab {
             repo,
         }
     }
+    fn login_url(&self) -> String {
+        format!("https://{}/-/profile/personal_access_tokens?name=gr&scopes=read_user,api", self.hostname)
+    }
+    fn validate_token(&self, token: &str) -> Result<()> {
+        if token.len() != 20 {
+            Err(eyre!("Your GitLab token has to be 20 characters long."))
+        } else {
+            Ok(())
+        }
+    }
     async fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {
         let reviewers = future::join_all(
             pr.reviewers
