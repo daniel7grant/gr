@@ -291,6 +291,17 @@ impl VersionControl for GitLab {
 
         Ok(new_pr.into())
     }
+    async fn get_pr_by_id(&self, id: u32) -> Result<PullRequest> {
+        let pr: GitLabPullRequest = self
+            .call(
+                Method::GET,
+                &self.get_repository_url(&format!("/merge_requests/{id}")),
+                None as Option<i32>,
+            )
+            .await?;
+
+        Ok(pr.into())
+    }
     async fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest> {
         let prs: Vec<GitLabPullRequest> = self
             .call(
@@ -353,8 +364,8 @@ impl VersionControl for GitLab {
 
         Ok(pr.into())
     }
-    async fn merge_pr(&self, id: u32, should_remove_source_branch: bool) -> Result<()> {
-        let _: GitLabPullRequest = self
+    async fn merge_pr(&self, id: u32, should_remove_source_branch: bool) -> Result<PullRequest> {
+        let pr: GitLabPullRequest = self
             .call(
                 Method::PUT,
                 &self.get_repository_url(&format!("/merge_requests/{id}/merge")),
@@ -364,6 +375,6 @@ impl VersionControl for GitLab {
             )
             .await?;
 
-        Ok(())
+        Ok(pr.into())
     }
 }

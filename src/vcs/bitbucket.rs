@@ -308,6 +308,17 @@ impl VersionControl for Bitbucket {
 
         Ok(new_pr.into())
     }
+    async fn get_pr_by_id(&self, id: u32) -> Result<PullRequest> {
+        let pr: BitbucketPullRequest = self
+            .call(
+                Method::GET,
+                &self.get_repository_url(&format!("/pullrequests/{id}")),
+                None as Option<u32>,
+            )
+            .await?;
+
+        Ok(pr.into())
+    }
     async fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest> {
         let prs: Vec<BitbucketPullRequest> = self
             .call_paginated(&self.get_repository_url("/pullrequests"))
@@ -353,8 +364,8 @@ impl VersionControl for Bitbucket {
 
         Ok(pr.into())
     }
-    async fn merge_pr(&self, id: u32, close_source_branch: bool) -> Result<()> {
-        let _: BitbucketPullRequest = self
+    async fn merge_pr(&self, id: u32, close_source_branch: bool) -> Result<PullRequest> {
+        let pr: BitbucketPullRequest = self
             .call(
                 Method::POST,
                 &self.get_repository_url(&format!("/pullrequests/{id}/merge")),
@@ -364,6 +375,6 @@ impl VersionControl for Bitbucket {
             )
             .await?;
 
-        Ok(())
+        Ok(pr.into())
     }
 }

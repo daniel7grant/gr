@@ -260,6 +260,17 @@ impl VersionControl for GitHub {
 
         Ok(new_pr.into())
     }
+    async fn get_pr_by_id(&self, id: u32) -> Result<PullRequest> {
+        let pr: GitHubPullRequest = self
+            .call(
+                Method::GET,
+                &self.get_repository_url(&format!("/pulls/{id}")),
+                None as Option<i32>,
+            )
+            .await?;
+
+        Ok(pr.into())
+    }
     async fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest> {
         let prs: Vec<GitHubPullRequest> = self
             .call(
@@ -320,7 +331,7 @@ impl VersionControl for GitHub {
 
         Ok(pr.into())
     }
-    async fn merge_pr(&self, id: u32, delete_source_branch: bool) -> Result<()> {
+    async fn merge_pr(&self, id: u32, _: bool) -> Result<PullRequest> {
         let _: GitHubPullRequestMerged = self
             .call(
                 Method::PUT,
@@ -329,6 +340,6 @@ impl VersionControl for GitHub {
             )
             .await?;
 
-        todo!();
+        self.get_pr_by_id(id).await
     }
 }
