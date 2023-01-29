@@ -83,6 +83,7 @@ pub struct CreatePullRequest {
     pub source: String,
     pub target: Option<String>,
     pub close_source_branch: bool,
+    pub reviewers: Vec<User>,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]

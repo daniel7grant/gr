@@ -55,6 +55,9 @@ pub enum PrCommands {
         /// Change the target branch (default: the default branch in the repo)
         #[arg(long)]
         target: Option<String>,
+        /// Change the target branch (default: the default branch in the repo)
+        #[arg(short, long = "reviewer")]
+        reviewers: Option<Vec<String>>,
         /// Close source branch after merging
         #[arg(long)]
         close: bool,

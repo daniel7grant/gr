@@ -6,8 +6,9 @@ use color_eyre::{
     eyre::{eyre, ContextCompat},
     Result,
 };
+use futures::future;
 use gr::git::{git::LocalRepository, url::parse_url};
-use gr::vcs::common::{init_vcs, CreatePullRequest};
+use gr::vcs::common::{init_vcs, CreatePullRequest, User};
 
 pub async fn create(command: Commands, mut conf: Configuration) -> Result<()> {
     if let Commands::Pr(PrCommands::Create {
@@ -18,6 +19,7 @@ pub async fn create(command: Commands, mut conf: Configuration) -> Result<()> {
         target,
         close,
         open,
+        reviewers,
     }) = command
     {
         let repo = LocalRepository::init(dir)?;
@@ -34,6 +36,16 @@ pub async fn create(command: Commands, mut conf: Configuration) -> Result<()> {
 
         let vcs = init_vcs(hostname.clone(), repo.clone(), settings);
 
+        let reviewers = reviewers.unwrap_or_default();
+        let reviewers = future::join_all(
+            reviewers
+                .iter()
+                .map(|reviewer| vcs.get_user_by_name(reviewer)),
+        )
+        .await
+        .into_iter()
+        .collect::<Result<Vec<User>>>()?;
+
         let pr = vcs
             .create_pr(CreatePullRequest {
                 title: message,
@@ -41,6 +53,7 @@ pub async fn create(command: Commands, mut conf: Configuration) -> Result<()> {
                 source: remote_branch,
                 target,
                 close_source_branch: close,
+                reviewers,
             })
             .await?;
         pr.show(open);

@@ -161,6 +161,7 @@ impl From<CreatePullRequest> for BitbucketCreatePullRequest {
             source,
             target: destination,
             close_source_branch,
+            ..
         } = pr;
         Self {
             title,
@@ -264,10 +265,10 @@ impl VersionControl for Bitbucket {
             repo,
         }
     }
-    async fn get_user_by_name(&self, username: &str) -> Result<User> {
+    async fn get_user_by_name(&self, _: &str) -> Result<User> {
         // TODO: figure out a way to get an arbitrary user in BitBucket
         // maybe from the workspaces API?
-        todo!();
+        Err(eyre!("Reviewers feature is not implemented for Bitbucket."))
     }
     async fn create_pr(&self, pr: CreatePullRequest) -> Result<PullRequest> {
         let new_pr: BitbucketPullRequest = self

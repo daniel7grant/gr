@@ -20,7 +20,10 @@ pub struct GitLabUser {
 impl From<GitLabUser> for User {
     fn from(user: GitLabUser) -> User {
         let GitLabUser { id, username, .. } = user;
-        User { id: id.to_string(), username }
+        User {
+            id: id.to_string(),
+            username,
+        }
     }
 }
 
@@ -135,6 +138,7 @@ pub struct GitLabCreatePullRequest {
     pub source_branch: String,
     pub target_branch: String,
     pub remove_source_branch: bool,
+    pub reviewer_ids: Vec<String>,
 }
 
 impl From<CreatePullRequest> for GitLabCreatePullRequest {
@@ -145,6 +149,7 @@ impl From<CreatePullRequest> for GitLabCreatePullRequest {
             source,
             target,
             close_source_branch,
+            reviewers,
         } = pr;
         Self {
             title,
@@ -153,6 +158,7 @@ impl From<CreatePullRequest> for GitLabCreatePullRequest {
             // We are never supposed to fallback to this, but handle it
             target_branch: target.unwrap_or("master".to_string()),
             remove_source_branch: close_source_branch,
+            reviewer_ids: reviewers.into_iter().map(|r| r.id).collect(),
         }
     }
 }
