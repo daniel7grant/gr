@@ -142,6 +142,28 @@ impl From<CreatePullRequest> for GitHubCreatePullRequest {
     }
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub enum GitHubCreatePullRequestReviewEvent {
+    #[serde(rename = "APPROVE")]
+    Approve,
+    #[serde(rename = "REQUEST_CHANGES")]
+    RequestChanges,
+    #[serde(rename = "COMMENT")]
+    Comment,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct GitHubCreatePullRequestReview {
+    event: GitHubCreatePullRequestReviewEvent,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    body: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct GitHubCreatePullRequestReviewers {
+    reviewers: Vec<String>,
+}
+
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct GitHubUpdatePullRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -225,6 +247,7 @@ impl VersionControl for GitHub {
         Ok(user.into())
     }
     async fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {
+        let reviewers = pr.reviewers.clone();
         pr.target = pr.target.or(self.settings.default_branch.clone());
         if pr.target.is_none() {
             let GitHubRepository { default_branch, .. } = self.get_repository_data().await?;
@@ -237,6 +260,13 @@ impl VersionControl for GitHub {
                 Some(GitHubCreatePullRequest::from(pr)),
             )
             .await?;
+
+        self.call(
+            Method::POST,
+            &format!("/pulls/{}/requested_reviewers", new_pr.number),
+            Some(GitHubCreatePullRequestReviewers { reviewers }),
+        )
+        .await?;
 
         Ok(new_pr.into())
     }
@@ -272,8 +302,18 @@ impl VersionControl for GitHub {
 
         Ok(prs.into_iter().map(|pr| pr.into()).collect())
     }
-    async fn approve_pr(&self, _: u32) -> Result<()> {
-        todo!()
+    async fn approve_pr(&self, id: u32) -> Result<()> {
+        self.call(
+            Method::POST,
+            &format!("/pulls/{id}/reviews"),
+            Some(GitHubCreatePullRequestReview {
+                event: GitHubCreatePullRequestReviewEvent::Approve,
+                body: None,
+            }),
+        )
+        .await?;
+
+        Ok(())
     }
     async fn close_pr(&self, id: u32) -> Result<PullRequest> {
         let closing = GitHubUpdatePullRequest {

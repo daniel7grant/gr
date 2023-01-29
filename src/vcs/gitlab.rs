@@ -6,6 +6,7 @@ use super::common::{
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use color_eyre::{eyre::eyre, Result};
+use futures::future;
 use reqwest::{Client, Method};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use urlencoding::encode;
@@ -158,7 +159,7 @@ impl From<CreatePullRequest> for GitLabCreatePullRequest {
             // We are never supposed to fallback to this, but handle it
             target_branch: target.unwrap_or("master".to_string()),
             remove_source_branch: close_source_branch,
-            reviewer_ids: reviewers.into_iter().map(|r| r.id).collect(),
+            reviewer_ids: reviewers,
         }
     }
 }
@@ -262,6 +263,17 @@ impl VersionControl for GitLab {
         }
     }
     async fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {
+        let reviewers = future::join_all(
+            pr.reviewers
+                .iter()
+                .map(|reviewer| self.get_user_by_name(reviewer)),
+        )
+        .await
+        .into_iter()
+        .collect::<Result<Vec<User>>>()?;
+
+        pr.reviewers = reviewers.into_iter().map(|r| r.id).collect();
+
         pr.target = pr.target.or(self.settings.default_branch.clone());
         if pr.target.is_none() {
             let GitLabRepository { default_branch, .. } = self.get_repository_data().await?;
