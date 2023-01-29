@@ -33,6 +33,12 @@ impl From<BitbucketPullRequestState> for PullRequestState {
     }
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct BitbucketApproval {
+    approved: bool,
+    user: BitbucketUser,
+}
+
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct BitbucketUser {
     pub account_id: String,
@@ -201,8 +207,7 @@ impl Bitbucket {
                     self.repo, url
                 ),
             )
-            .basic_auth(username, Some(password))
-            .header("Content-Type", "application/json");
+            .basic_auth(username, Some(password));
         if let Some(body) = &body {
             request = request.json(body);
         }
@@ -285,12 +290,36 @@ impl VersionControl for Bitbucket {
         Ok(prs.into_iter().map(|pr| pr.into()).collect())
     }
     async fn approve_pr(&self, id: u32) -> Result<()> {
-        todo!();
+        let _: BitbucketApproval = self
+            .call(
+                Method::POST,
+                &format!("/pullrequests/{id}/approve"),
+                None as Option<i32>,
+            )
+            .await?;
+
+        Ok(())
     }
     async fn decline_pr(&self, id: u32) -> Result<PullRequest> {
-        todo!();
+        let pr: BitbucketPullRequest = self
+            .call(
+                Method::POST,
+                &format!("/pullrequests/{id}/decline"),
+                None as Option<i32>,
+            )
+            .await?;
+
+        Ok(pr.into())
     }
     async fn merge_pr(&self, id: u32) -> Result<()> {
-        todo!();
+        let _: BitbucketPullRequest = self
+            .call(
+                Method::POST,
+                &format!("/pullrequests/{id}/merge"),
+                None as Option<i32>,
+            )
+            .await?;
+
+        Ok(())
     }
 }
