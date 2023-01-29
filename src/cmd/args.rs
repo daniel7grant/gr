@@ -1,7 +1,29 @@
-use clap::{Command, CommandFactory, Parser, Subcommand};
+use clap::{Command, CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::{generate, Generator, Shell};
 use std::io;
 use std::process;
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+pub enum StateFilter {
+    /// Show only open pull requests (default)
+    Open,
+    /// Show only closed pull requests
+    Closed,
+    /// Show only merged pull requests (GitLab and Bitbucket only)
+    Merged,
+    /// Show only locked pull requests (GitLab only)
+    Locked,
+    /// Show all pull requests
+    All,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+pub enum UserFilter {
+    /// Show only pull requests by me (GitLab only)
+    Me,
+    /// Show all pull requests
+    All,
+}
 
 #[derive(Debug, Subcommand)]
 #[command(after_help = "Examples:
@@ -33,9 +55,12 @@ pub enum PrCommands {
         /// Change the target branch (default: the default branch in the repo)
         #[arg(long)]
         target: Option<String>,
-        /// Close source branch after merging
+        /// Change the target branch (default: the default branch in the repo)
+        #[arg(short, long = "reviewer")]
+        reviewers: Option<Vec<String>>,
+        /// Delete source branch after merging (Gitlab and Bitbucket only)
         #[arg(long)]
-        close: bool,
+        delete: bool,
         /// Open the pull request in the browser
         #[arg(long)]
         open: bool,
@@ -63,6 +88,12 @@ pub enum PrCommands {
     },
     /// List pull requests for the current repo
     List {
+        /// Filter by PR author
+        #[arg(long, value_enum)]
+        author: Option<UserFilter>,
+        /// Filter by PR state
+        #[arg(long, value_enum)]
+        state: Option<StateFilter>,
         /// Change the repo directory (default: the current directory)
         #[arg(long)]
         dir: Option<String>,
@@ -82,9 +113,13 @@ pub enum PrCommands {
         /// Change the repo directory (default: the current directory)
         #[arg(long)]
         dir: Option<String>,
+        /// Delete source branch after merging (Gitlab and Bitbucket only)
+        #[arg(long)]
+        delete: bool,
     },
-    /// Decline (close) the pull request for the current branch
-    Decline {
+    /// Close (decline) the pull request for the current branch
+    #[command(alias = "decline")]
+    Close {
         #[arg(short, long)]
         branch: Option<String>,
         /// Change the repo directory (default: the current directory)

@@ -34,6 +34,36 @@ impl LocalRepository {
         Ok(branch_shorthand.to_string())
     }
 
+    pub fn get_remote(self: &LocalRepository, remote_name: Option<String>) -> Result<String> {
+        // Use given branch name if we can
+        let remote_name = remote_name
+            // Or fallback to origin, if exists
+            .or_else(|| {
+                self.repository
+                    .find_remote("origin")
+                    .ok()
+                    .and(Some("origin".to_string()))
+            })
+            // Or fallback to the first remote
+            .or_else(|| {
+                self.repository
+                    .remotes()
+                    .into_iter()
+                    .next()
+                    .and_then(|r| r.get(0).map(|b| b.to_string()))
+            })
+            .wrap_err("There are no remotes in the current repository.")?;
+
+        // Find remote URL
+        let remote = self
+            .repository
+            .find_remote(&remote_name)
+            .wrap_err(eyre!("Remote URL with name {} not found.", remote_name))?;
+        let remote_url = remote.url().wrap_err("Remote URL is not valid UTF-8.")?;
+
+        Ok(remote_url.to_string())
+    }
+
     pub fn get_remote_branch(
         self: &LocalRepository,
         branch_name: Option<String>,
@@ -59,11 +89,9 @@ impl LocalRepository {
             "Remote branch name {} is invalid.",
             upstream_branch_name
         ))?;
-        let remote = self
-            .repository
-            .find_remote(remote_name)
-            .wrap_err(eyre!("Remote URL with name {} not found.", remote_name))?;
-        let remote_url = remote.url().wrap_err("Remote URL is not valid UTF-8.")?;
+
+        let remote_url = self.get_remote(Some(remote_name.to_string()))?;
+
         Ok((remote_url.to_string(), remote_branch.to_string()))
     }
 }

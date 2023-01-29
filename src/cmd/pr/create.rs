@@ -16,8 +16,9 @@ pub async fn create(command: Commands, mut conf: Configuration) -> Result<()> {
         branch,
         dir,
         target,
-        close,
+        delete,
         open,
+        reviewers,
     }) = command
     {
         let repo = LocalRepository::init(dir)?;
@@ -34,13 +35,16 @@ pub async fn create(command: Commands, mut conf: Configuration) -> Result<()> {
 
         let vcs = init_vcs(hostname.clone(), repo.clone(), settings);
 
+        let reviewers = reviewers.unwrap_or_default();
+
         let pr = vcs
             .create_pr(CreatePullRequest {
                 title: message,
                 description: description.unwrap_or_default(),
                 source: remote_branch,
                 target,
-                close_source_branch: close,
+                close_source_branch: delete,
+                reviewers,
             })
             .await?;
         pr.show(open);

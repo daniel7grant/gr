@@ -4,7 +4,7 @@ use cmd::{
     args::{Cli, Commands, PrCommands},
     config::Configuration,
     login::login::login,
-    pr::{approve::approve, create::create, decline::decline, get::get, list::list, merge::merge},
+    pr::{approve::approve, create::create, close::close, get::get, list::list, merge::merge},
 };
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
@@ -31,7 +31,7 @@ async fn main() -> Result<()> {
         Commands::Pr(PrCommands::List { .. }) => list(args.command, conf).await,
         Commands::Pr(PrCommands::Approve { .. }) => approve(args.command, conf).await,
         Commands::Pr(PrCommands::Merge { .. }) => merge(args.command, conf).await,
-        Commands::Pr(PrCommands::Decline { .. }) => decline(args.command, conf).await,
+        Commands::Pr(PrCommands::Close { .. }) => close(args.command, conf).await,
         Commands::Completion { .. } => Err(eyre!("Invalid command.")),
     }
 }

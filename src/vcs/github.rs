@@ -1,6 +1,7 @@
 // Documentation: https://docs.github.com/en/rest/quickstart
 use super::common::{
-    CreatePullRequest, PullRequest, PullRequestState, User, VersionControl, VersionControlSettings, ListPullRequestFilters,
+    CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
+    PullRequestStateFilter, User, VersionControl, VersionControlSettings,
 };
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -16,8 +17,11 @@ pub struct GitHubUser {
 
 impl From<GitHubUser> for User {
     fn from(user: GitHubUser) -> User {
-        let GitHubUser { login, .. } = user;
-        User { username: login }
+        let GitHubUser { id, login, .. } = user;
+        User {
+            id: id.to_string(),
+            username: login,
+        }
     }
 }
 
@@ -42,16 +46,7 @@ pub enum GitHubPullRequestState {
     #[serde(rename = "open")]
     Open,
     #[serde(rename = "closed")]
-    Merged,
-}
-
-impl From<GitHubPullRequestState> for PullRequestState {
-    fn from(state: GitHubPullRequestState) -> PullRequestState {
-        match state {
-            GitHubPullRequestState::Open => PullRequestState::Open,
-            GitHubPullRequestState::Merged => PullRequestState::Merged,
-        }
-    }
+    Closed,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -67,12 +62,13 @@ pub struct GitHubPullRequest {
     pub state: GitHubPullRequestState,
     pub locked: bool,
     pub title: String,
-    pub body: String,
+    pub body: Option<String>,
     pub head: GitHubPullRequestBranch,
     pub base: GitHubPullRequestBranch,
     pub html_url: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub merged_at: Option<DateTime<Utc>>,
     pub user: GitHubUser,
     pub merged_by: Option<GitHubUser>,
     pub requested_reviewers: Option<Vec<GitHubUser>>,
@@ -84,12 +80,14 @@ impl From<GitHubPullRequest> for PullRequest {
             number,
             state,
             title,
+            locked,
             body,
             head,
             base,
             html_url,
             created_at,
             updated_at,
+            merged_at,
             user,
             merged_by,
             requested_reviewers,
@@ -97,9 +95,14 @@ impl From<GitHubPullRequest> for PullRequest {
         } = pr;
         PullRequest {
             id: number,
-            state: state.into(),
+            state: match (state, merged_at, locked) {
+                (_, _, true) => PullRequestState::Locked,
+                (GitHubPullRequestState::Open, _, _) => PullRequestState::Open,
+                (GitHubPullRequestState::Closed, Some(_), _) => PullRequestState::Merged,
+                (GitHubPullRequestState::Closed, None, _) => PullRequestState::Closed,
+            },
             title,
-            description: body,
+            description: body.unwrap_or_default(),
             source: head.branch,
             target: base.branch,
             url: html_url,
@@ -139,6 +142,46 @@ impl From<CreatePullRequest> for GitHubCreatePullRequest {
     }
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub enum GitHubCreatePullRequestReviewEvent {
+    #[serde(rename = "APPROVE")]
+    Approve,
+    #[serde(rename = "REQUEST_CHANGES")]
+    RequestChanges,
+    #[serde(rename = "COMMENT")]
+    Comment,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct GitHubCreatePullRequestReview {
+    event: GitHubCreatePullRequestReviewEvent,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    body: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct GitHubCreatePullRequestReviewers {
+    reviewers: Vec<String>,
+}
+
+#[derive(Debug, Default, Deserialize, Serialize)]
+pub struct GitHubUpdatePullRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub body: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub base: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state: Option<GitHubPullRequestState>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct GitHubPullRequestMerged {
+    merged: bool,
+    message: String,
+}
+
 pub struct GitHub {
     settings: VersionControlSettings,
     client: Client,
@@ -146,6 +189,10 @@ pub struct GitHub {
 }
 
 impl GitHub {
+    fn get_repository_url(&self, url: &str) -> String {
+        format!("/repos/{}{}", self.repo, url)
+    }
+
     async fn call<T: DeserializeOwned, U: Serialize>(
         &self,
         method: Method,
@@ -154,17 +201,14 @@ impl GitHub {
     ) -> Result<T> {
         let mut request = self
             .client
-            .request(
-                method,
-                format!("https://api.github.com/repos/{}{}", self.repo, url),
-            )
+            .request(method, format!("https://api.github.com{}", url))
             .header("User-Agent", "gr")
             .header("Authorization", format!("Bearer {}", &self.settings.auth))
             .header("Content-Type", "application/json");
         if let Some(body) = body {
             request = request.json(&body);
         }
-        
+
         let result = request.send().await?;
         let status = result.status();
         if status.is_client_error() || status.is_server_error() {
@@ -193,6 +237,7 @@ impl VersionControl for GitHub {
         }
     }
     async fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {
+        let reviewers = pr.reviewers.clone();
         pr.target = pr.target.or(self.settings.default_branch.clone());
         if pr.target.is_none() {
             let GitHubRepository { default_branch, .. } = self.get_repository_data().await?;
@@ -201,18 +246,36 @@ impl VersionControl for GitHub {
         let new_pr: GitHubPullRequest = self
             .call(
                 Method::POST,
-                "/pulls",
+                &self.get_repository_url("/pulls"),
                 Some(GitHubCreatePullRequest::from(pr)),
             )
             .await?;
 
+        self.call(
+            Method::POST,
+            &self.get_repository_url(&format!("/pulls/{}/requested_reviewers", new_pr.number)),
+            Some(GitHubCreatePullRequestReviewers { reviewers }),
+        )
+        .await?;
+
         Ok(new_pr.into())
     }
-    async fn get_pr(&self, branch: &str) -> Result<PullRequest> {
+    async fn get_pr_by_id(&self, id: u32) -> Result<PullRequest> {
+        let pr: GitHubPullRequest = self
+            .call(
+                Method::GET,
+                &self.get_repository_url(&format!("/pulls/{id}")),
+                None as Option<i32>,
+            )
+            .await?;
+
+        Ok(pr.into())
+    }
+    async fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest> {
         let prs: Vec<GitHubPullRequest> = self
             .call(
                 Method::GET,
-                &format!("/pulls?head={}", branch),
+                &self.get_repository_url(&format!("/pulls?state=all&head={}", branch)),
                 None as Option<i32>,
             )
             .await?;
@@ -223,15 +286,60 @@ impl VersionControl for GitHub {
         }
     }
     async fn list_prs(&self, filters: ListPullRequestFilters) -> Result<Vec<PullRequest>> {
-        todo!();
+        let state = match filters.state {
+            PullRequestStateFilter::Open => "open",
+            PullRequestStateFilter::Closed
+            | PullRequestStateFilter::Merged
+            | PullRequestStateFilter::Locked => "closed",
+            PullRequestStateFilter::All => "all",
+        };
+        let prs: Vec<GitHubPullRequest> = self
+            .call(
+                Method::GET,
+                &self.get_repository_url(&format!("/pulls?state={state}")),
+                None as Option<i32>,
+            )
+            .await?;
+
+        Ok(prs.into_iter().map(|pr| pr.into()).collect())
     }
-    async fn approve_pr(&self, branch: &str) -> Result<PullRequest> {
-        todo!();
+    async fn approve_pr(&self, id: u32) -> Result<()> {
+        self.call(
+            Method::POST,
+            &self.get_repository_url(&format!("/pulls/{id}/reviews")),
+            Some(GitHubCreatePullRequestReview {
+                event: GitHubCreatePullRequestReviewEvent::Approve,
+                body: None,
+            }),
+        )
+        .await?;
+
+        Ok(())
     }
-    async fn decline_pr(&self, branch: &str) -> Result<PullRequest> {
-        todo!();
+    async fn close_pr(&self, id: u32) -> Result<PullRequest> {
+        let closing = GitHubUpdatePullRequest {
+            state: Some(GitHubPullRequestState::Closed),
+            ..GitHubUpdatePullRequest::default()
+        };
+        let pr: GitHubPullRequest = self
+            .call(
+                Method::PATCH,
+                &self.get_repository_url(&format!("/pulls/{id}")),
+                Some(closing),
+            )
+            .await?;
+
+        Ok(pr.into())
     }
-    async fn merge_pr(&self, branch: &str) -> Result<PullRequest> {
-        todo!();
+    async fn merge_pr(&self, id: u32, _: bool) -> Result<PullRequest> {
+        let _: GitHubPullRequestMerged = self
+            .call(
+                Method::PUT,
+                &self.get_repository_url(&format!("/pulls/{id}/merge")),
+                None as Option<i32>,
+            )
+            .await?;
+
+        self.get_pr_by_id(id).await
     }
 }
