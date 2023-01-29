@@ -235,19 +235,7 @@ impl GitLab {
         self.call::<GitLabRepository, i32>(Method::GET, "", None)
             .await
     }
-}
-
-#[async_trait]
-impl VersionControl for GitLab {
-    fn init(hostname: String, repo: String, settings: VersionControlSettings) -> Self {
-        let client = Client::new();
-        GitLab {
-            settings,
-            client,
-            hostname,
-            repo,
-        }
-    }
+    
     async fn get_user_by_name(&self, username: &str) -> Result<User> {
         let users: Vec<GitLabUser> = self
             .call(
@@ -260,6 +248,19 @@ impl VersionControl for GitLab {
         match users.into_iter().next() {
             Some(user) => Ok(user.into()),
             None => Err(eyre!("User with name {username} not found.")),
+        }
+    }
+}
+
+#[async_trait]
+impl VersionControl for GitLab {
+    fn init(hostname: String, repo: String, settings: VersionControlSettings) -> Self {
+        let client = Client::new();
+        GitLab {
+            settings,
+            client,
+            hostname,
+            repo,
         }
     }
     async fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {

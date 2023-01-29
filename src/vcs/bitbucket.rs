@@ -39,6 +39,11 @@ pub struct BitbucketApproval {
     user: BitbucketUser,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct BitbucketMembership {
+    user: BitbucketUser,
+}
+
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct BitbucketUser {
     pub account_id: String,
@@ -144,6 +149,11 @@ impl From<BitbucketPullRequest> for PullRequest {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+pub struct BitbucketReviewer {
+    pub uuid: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct BitbucketCreatePullRequest {
     pub title: String,
     pub description: String,
@@ -151,6 +161,7 @@ pub struct BitbucketCreatePullRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub destination: Option<BitbucketPullRequestRevision>,
     pub close_source_branch: bool,
+    pub reviewers: Vec<BitbucketReviewer>,
 }
 
 impl From<CreatePullRequest> for BitbucketCreatePullRequest {
@@ -161,7 +172,7 @@ impl From<CreatePullRequest> for BitbucketCreatePullRequest {
             source,
             target: destination,
             close_source_branch,
-            ..
+            reviewers,
         } = pr;
         Self {
             title,
@@ -175,6 +186,10 @@ impl From<CreatePullRequest> for BitbucketCreatePullRequest {
                 commit: None,
             }),
             close_source_branch,
+            reviewers: reviewers
+                .into_iter()
+                .map(|uuid| BitbucketReviewer { uuid })
+                .collect(),
         }
     }
 }
@@ -195,6 +210,10 @@ pub struct Bitbucket {
 }
 
 impl Bitbucket {
+    fn get_repository_url(&self, url: &str) -> String {
+        format!("/repositories/{}{}", self.repo, url)
+    }
+
     async fn call<T: DeserializeOwned, U: Serialize + Debug>(
         &self,
         method: Method,
@@ -208,13 +227,7 @@ impl Bitbucket {
             .wrap_err("Authentication has to contain a username and a token.")?;
         let mut request = self
             .client
-            .request(
-                method,
-                format!(
-                    "https://api.bitbucket.org/2.0/repositories/{}{}",
-                    self.repo, url
-                ),
-            )
+            .request(method, format!("https://api.bitbucket.org/2.0{url}"))
             .basic_auth(username, Some(password));
         if let Some(body) = &body {
             request = request.json(body);
@@ -236,11 +249,7 @@ impl Bitbucket {
         let mut i = 1;
         loop {
             let mut page: BitbucketPaginated<T> = self
-                .call(
-                    Method::GET,
-                    &format!("/{url}?page={i}"),
-                    None as Option<i32>,
-                )
+                .call(Method::GET, &format!("{url}?page={i}"), None as Option<i32>)
                 .await?;
 
             collected_values.append(&mut page.values);
@@ -252,6 +261,22 @@ impl Bitbucket {
             i += 1;
         }
         Ok(collected_values)
+    }
+
+    async fn get_workspace_users(&self, usernames: Vec<String>) -> Result<Vec<BitbucketUser>> {
+        let (workspace, _) = self
+            .repo
+            .split_once("/")
+            .wrap_err(eyre!("Repo URL is malformed: {}", &self.repo))?;
+        let members: Vec<BitbucketMembership> = self
+            .call_paginated(&format!("/workspaces/{workspace}/members"))
+            .await?;
+
+        Ok(members
+            .into_iter()
+            .map(|m| m.user)
+            .filter(|u| usernames.contains(&u.nickname))
+            .collect())
     }
 }
 
@@ -265,16 +290,13 @@ impl VersionControl for Bitbucket {
             repo,
         }
     }
-    async fn get_user_by_name(&self, _: &str) -> Result<User> {
-        // TODO: figure out a way to get an arbitrary user in BitBucket
-        // maybe from the workspaces API?
-        Err(eyre!("Reviewers feature is not implemented for Bitbucket."))
-    }
-    async fn create_pr(&self, pr: CreatePullRequest) -> Result<PullRequest> {
+    async fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {
+        let reviewers = self.get_workspace_users(pr.reviewers.clone()).await?;
+        pr.reviewers = reviewers.into_iter().map(|r| r.uuid).collect();
         let new_pr: BitbucketPullRequest = self
             .call(
                 Method::POST,
-                "/pullrequests",
+                &self.get_repository_url("/pullrequests"),
                 Some(BitbucketCreatePullRequest::from(pr)),
             )
             .await?;
@@ -282,7 +304,9 @@ impl VersionControl for Bitbucket {
         Ok(new_pr.into())
     }
     async fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest> {
-        let prs: Vec<BitbucketPullRequest> = self.call_paginated("/pullrequests").await?;
+        let prs: Vec<BitbucketPullRequest> = self
+            .call_paginated(&self.get_repository_url("/pullrequests"))
+            .await?;
 
         prs.into_iter()
             .find(|pr| pr.source.branch.name == branch)
@@ -297,7 +321,7 @@ impl VersionControl for Bitbucket {
             PullRequestStateFilter::Locked | PullRequestStateFilter::All => "",
         };
         let prs: Vec<BitbucketPullRequest> = self
-            .call_paginated(&format!("/pullrequests{state_param}"))
+            .call_paginated(&self.get_repository_url(&format!("/pullrequests{state_param}")))
             .await?;
 
         Ok(prs.into_iter().map(|pr| pr.into()).collect())
@@ -306,7 +330,7 @@ impl VersionControl for Bitbucket {
         let _: BitbucketApproval = self
             .call(
                 Method::POST,
-                &format!("/pullrequests/{id}/approve"),
+                &self.get_repository_url(&format!("/pullrequests/{id}/approve")),
                 None as Option<i32>,
             )
             .await?;
@@ -317,7 +341,7 @@ impl VersionControl for Bitbucket {
         let pr: BitbucketPullRequest = self
             .call(
                 Method::POST,
-                &format!("/pullrequests/{id}/decline"),
+                &self.get_repository_url(&format!("/pullrequests/{id}/decline")),
                 None as Option<i32>,
             )
             .await?;
@@ -328,7 +352,7 @@ impl VersionControl for Bitbucket {
         let _: BitbucketPullRequest = self
             .call(
                 Method::POST,
-                &format!("/pullrequests/{id}/merge"),
+                &self.get_repository_url(&format!("/pullrequests/{id}/merge")),
                 None as Option<i32>,
             )
             .await?;

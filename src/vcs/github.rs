@@ -235,17 +235,6 @@ impl VersionControl for GitHub {
             repo,
         }
     }
-    async fn get_user_by_name(&self, username: &str) -> Result<User> {
-        let user: GitHubUser = self
-            .call(
-                Method::GET,
-                &format!("/users/{username}"),
-                None as Option<i32>,
-            )
-            .await?;
-
-        Ok(user.into())
-    }
     async fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {
         let reviewers = pr.reviewers.clone();
         pr.target = pr.target.or(self.settings.default_branch.clone());
