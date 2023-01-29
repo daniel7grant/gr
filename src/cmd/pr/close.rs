@@ -1,17 +1,25 @@
 use crate::cmd::{
-    args::{Commands, PrCommands, Cli},
+    args::{Cli, Commands, PrCommands},
     config::Configuration,
 };
 use color_eyre::{
     eyre::{eyre, ContextCompat},
     Result,
 };
-use gr::{git::{git::LocalRepository, url::parse_url}, vcs::common::VersionControlSettings};
 use gr::vcs::common::init_vcs;
+use gr::{
+    git::{git::LocalRepository, url::parse_url},
+    vcs::common::VersionControlSettings,
+};
 
 pub async fn close(args: Cli, conf: Configuration) -> Result<()> {
-    let Cli { command } = args;
-    if let Commands::Pr(PrCommands::Close { branch, dir, auth }) = command {
+    let Cli {
+        command,
+        branch,
+        dir,
+        auth,
+    } = args;
+    if let Commands::Pr(PrCommands::Close {}) = command {
         let repo = LocalRepository::init(dir)?;
         let (remote_url, remote_branch) = repo.get_remote_branch(branch)?;
         let (hostname, repo) = parse_url(&remote_url)?;

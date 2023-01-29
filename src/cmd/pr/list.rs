@@ -1,5 +1,5 @@
 use crate::cmd::{
-    args::{Commands, PrCommands, StateFilter, UserFilter, Cli},
+    args::{Cli, Commands, PrCommands, StateFilter, UserFilter},
     config::Configuration,
 };
 use color_eyre::{
@@ -16,14 +16,8 @@ use gr::{
 };
 
 pub async fn list(args: Cli, conf: Configuration) -> Result<()> {
-    let Cli { command } = args;
-    if let Commands::Pr(PrCommands::List {
-        author,
-        dir,
-        state,
-        auth,
-    }) = command
-    {
+    let Cli { command, dir, auth, .. } = args;
+    if let Commands::Pr(PrCommands::List { author, state }) = command {
         let repo = LocalRepository::init(dir)?;
         // Find remote from branch upstream, or fallback to origin or any remote
         let remote_url = repo

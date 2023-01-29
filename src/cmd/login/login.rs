@@ -1,5 +1,5 @@
 use crate::cmd::{
-    args::{Commands, Cli},
+    args::{Cli, Commands},
     config::{Configuration, RepositoryConfig},
 };
 use color_eyre::{
@@ -14,11 +14,10 @@ use inquire::Text;
 use tokio::time::{sleep, Duration};
 
 pub async fn login(args: Cli, mut conf: Configuration) -> Result<()> {
-    let Cli { command } = args;
+    let Cli { command, dir, .. } = args;
     if let Commands::Login {
         hostname,
         repo: repo_name,
-        dir,
         token,
     } = command
     {
@@ -55,7 +54,7 @@ pub async fn login(args: Cli, mut conf: Configuration) -> Result<()> {
                 println!("Open this page: {}", &url);
             }
             sleep(Duration::from_millis(500)).await;
-    
+
             // Read the token from the user
             let mut token;
             loop {
@@ -68,7 +67,7 @@ pub async fn login(args: Cli, mut conf: Configuration) -> Result<()> {
                 }
             }
             token
-        };        
+        };
 
         // Modify the token in the configuration
         let host_conf = conf.vcs.entry(hostname);

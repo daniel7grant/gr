@@ -20,13 +20,8 @@ async fn main() -> Result<()> {
         Commands::Login { .. } => login(args, conf).await,
         Commands::Pr(PrCommands::Create { .. }) => create(args, conf).await,
         Commands::Pr(PrCommands::Get { .. }) => get(args, conf).await,
-        Commands::Pr(PrCommands::Open { branch, dir, auth }) => {
-            args.command = Commands::Pr(PrCommands::Get {
-                branch,
-                dir,
-                open: true,
-                auth,
-            });
+        Commands::Pr(PrCommands::Open { .. }) => {
+            args.command = Commands::Pr(PrCommands::Get { open: true });
             get(args, conf).await
         }
         Commands::Pr(PrCommands::List { .. }) => list(args, conf).await,

@@ -1,5 +1,5 @@
 use crate::cmd::{
-    args::{Commands, PrCommands, Cli},
+    args::{Cli, Commands, PrCommands},
     config::{Configuration, RepositoryConfig},
 };
 use color_eyre::{
@@ -13,17 +13,19 @@ use gr::{
 };
 
 pub async fn create(args: Cli, mut conf: Configuration) -> Result<()> {
-    let Cli { command } = args;
+    let Cli {
+        command,
+        branch,
+        dir,
+        auth,
+    } = args;
     if let Commands::Pr(PrCommands::Create {
         message,
         description,
-        branch,
-        dir,
         target,
         delete,
         open,
         reviewers,
-        auth,
     }) = command
     {
         let repo = LocalRepository::init(dir)?;

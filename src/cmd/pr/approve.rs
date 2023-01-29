@@ -1,5 +1,5 @@
 use crate::cmd::{
-    args::{Commands, PrCommands, Cli},
+    args::{Cli, Commands, PrCommands},
     config::Configuration,
 };
 use color_eyre::{
@@ -13,8 +13,13 @@ use gr::{
 };
 
 pub async fn approve(args: Cli, conf: Configuration) -> Result<()> {
-    let Cli { command } = args;
-    if let Commands::Pr(PrCommands::Approve { branch, dir, auth }) = command {
+    let Cli {
+        command,
+        branch,
+        dir,
+        auth,
+    } = args;
+    if let Commands::Pr(PrCommands::Approve {}) = command {
         let repo = LocalRepository::init(dir)?;
         let (remote_url, remote_branch) = repo.get_remote_branch(branch)?;
         let (hostname, repo) = parse_url(&remote_url)?;
@@ -22,7 +27,10 @@ pub async fn approve(args: Cli, conf: Configuration) -> Result<()> {
         // Find settings or use the auth command
         let settings = conf.find_settings(&hostname, &repo);
         let settings = if let Some(auth) = auth {
-            VersionControlSettings { auth, ..settings.unwrap_or_default() }
+            VersionControlSettings {
+                auth,
+                ..settings.unwrap_or_default()
+            }
         } else {
             settings.wrap_err(eyre!(
                 "Authentication not found for {} in {}.",
