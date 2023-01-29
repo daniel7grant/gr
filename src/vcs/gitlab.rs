@@ -197,6 +197,10 @@ pub struct GitLab {
 }
 
 impl GitLab {
+    fn get_repository_url(&self, url: &str) -> String {
+        format!("/projects/{}{}", encode(&self.repo).into_owned(), url)
+    }
+
     async fn call<T: DeserializeOwned, U: Serialize>(
         &self,
         method: Method,
@@ -205,15 +209,7 @@ impl GitLab {
     ) -> Result<T> {
         let mut request = self
             .client
-            .request(
-                method,
-                format!(
-                    "https://{}/api/v4/projects/{}{}",
-                    self.hostname,
-                    encode(&self.repo).into_owned(),
-                    url
-                ),
-            )
+            .request(method, format!("https://{}/api/v4{}", self.hostname, url))
             .header("Authorization", format!("Bearer {}", &self.settings.auth))
             .header("Content-Type", "application/json");
         if let Some(body) = body {
@@ -232,7 +228,7 @@ impl GitLab {
     }
 
     async fn get_repository_data(&self) -> Result<GitLabRepository> {
-        self.call::<GitLabRepository, i32>(Method::GET, "", None)
+        self.call::<GitLabRepository, i32>(Method::GET, &self.get_repository_url(""), None)
             .await
     }
     
@@ -283,7 +279,7 @@ impl VersionControl for GitLab {
         let new_pr: GitLabPullRequest = self
             .call(
                 Method::POST,
-                "/merge_requests",
+                &self.get_repository_url("/merge_requests"),
                 Some(GitLabCreatePullRequest::from(pr)),
             )
             .await?;
@@ -294,7 +290,7 @@ impl VersionControl for GitLab {
         let prs: Vec<GitLabPullRequest> = self
             .call(
                 Method::GET,
-                &format!("/merge_requests?source_branch={branch}"),
+                &self.get_repository_url(&format!("/merge_requests?source_branch={branch}")),
                 None as Option<i32>,
             )
             .await?;
@@ -319,7 +315,7 @@ impl VersionControl for GitLab {
         let prs: Vec<GitLabPullRequest> = self
             .call(
                 Method::GET,
-                &format!("/merge_requests{scope_param}{state_param}"),
+                &self.get_repository_url(&format!("/merge_requests{scope_param}{state_param}")),
                 None as Option<i32>,
             )
             .await?;
@@ -330,7 +326,7 @@ impl VersionControl for GitLab {
         let _: GitLabApproval = self
             .call(
                 Method::POST,
-                &format!("/merge_requests/{id}/approve"),
+                &self.get_repository_url(&format!("/merge_requests/{id}/approve")),
                 None as Option<i32>,
             )
             .await?;
@@ -343,7 +339,11 @@ impl VersionControl for GitLab {
             ..GitLabUpdatePullRequest::default()
         };
         let pr: GitLabPullRequest = self
-            .call(Method::PUT, &format!("/merge_requests/{id}"), Some(closing))
+            .call(
+                Method::PUT,
+                &self.get_repository_url(&format!("/merge_requests/{id}")),
+                Some(closing),
+            )
             .await?;
 
         Ok(pr.into())
@@ -352,7 +352,7 @@ impl VersionControl for GitLab {
         let _: GitLabPullRequest = self
             .call(
                 Method::PUT,
-                &format!("/merge_requests/{id}/merge"),
+                &self.get_repository_url(&format!("/merge_requests/{id}/merge")),
                 None as Option<i32>,
             )
             .await?;

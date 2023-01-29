@@ -189,6 +189,10 @@ pub struct GitHub {
 }
 
 impl GitHub {
+    fn get_repository_url(&self, url: &str) -> String {
+        format!("/repos/{}{}", self.repo, url)
+    }
+
     async fn call<T: DeserializeOwned, U: Serialize>(
         &self,
         method: Method,
@@ -197,10 +201,7 @@ impl GitHub {
     ) -> Result<T> {
         let mut request = self
             .client
-            .request(
-                method,
-                format!("https://api.github.com/repos/{}{}", self.repo, url),
-            )
+            .request(method, format!("https://api.github.com{}", url))
             .header("User-Agent", "gr")
             .header("Authorization", format!("Bearer {}", &self.settings.auth))
             .header("Content-Type", "application/json");
@@ -245,14 +246,14 @@ impl VersionControl for GitHub {
         let new_pr: GitHubPullRequest = self
             .call(
                 Method::POST,
-                "/pulls",
+                &self.get_repository_url("/pulls"),
                 Some(GitHubCreatePullRequest::from(pr)),
             )
             .await?;
 
         self.call(
             Method::POST,
-            &format!("/pulls/{}/requested_reviewers", new_pr.number),
+            &self.get_repository_url(&format!("/pulls/{}/requested_reviewers", new_pr.number)),
             Some(GitHubCreatePullRequestReviewers { reviewers }),
         )
         .await?;
@@ -263,7 +264,7 @@ impl VersionControl for GitHub {
         let prs: Vec<GitHubPullRequest> = self
             .call(
                 Method::GET,
-                &format!("/pulls?state=all&head={}", branch),
+                &self.get_repository_url(&format!("/pulls?state=all&head={}", branch)),
                 None as Option<i32>,
             )
             .await?;
@@ -284,7 +285,7 @@ impl VersionControl for GitHub {
         let prs: Vec<GitHubPullRequest> = self
             .call(
                 Method::GET,
-                &format!("/pulls?state={state}"),
+                &self.get_repository_url(&format!("/pulls?state={state}")),
                 None as Option<i32>,
             )
             .await?;
@@ -294,7 +295,7 @@ impl VersionControl for GitHub {
     async fn approve_pr(&self, id: u32) -> Result<()> {
         self.call(
             Method::POST,
-            &format!("/pulls/{id}/reviews"),
+            &self.get_repository_url(&format!("/pulls/{id}/reviews")),
             Some(GitHubCreatePullRequestReview {
                 event: GitHubCreatePullRequestReviewEvent::Approve,
                 body: None,
@@ -310,7 +311,11 @@ impl VersionControl for GitHub {
             ..GitHubUpdatePullRequest::default()
         };
         let pr: GitHubPullRequest = self
-            .call(Method::PATCH, &format!("/pulls/{id}"), Some(closing))
+            .call(
+                Method::PATCH,
+                &self.get_repository_url(&format!("/pulls/{id}")),
+                Some(closing),
+            )
             .await?;
 
         Ok(pr.into())
@@ -319,7 +324,7 @@ impl VersionControl for GitHub {
         let _: GitHubPullRequestMerged = self
             .call(
                 Method::PUT,
-                &format!("/pulls/{id}/merge"),
+                &self.get_repository_url(&format!("/pulls/{id}/merge")),
                 None as Option<i32>,
             )
             .await?;
