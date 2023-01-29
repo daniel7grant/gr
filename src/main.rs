@@ -4,7 +4,7 @@ use cmd::{
     args::{Cli, Commands, PrCommands},
     config::Configuration,
     login::login::login,
-    pr::{approve::approve, create::create, close::close, get::get, list::list, merge::merge},
+    pr::{approve::approve, close::close, create::create, get::get, list::list, merge::merge},
 };
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
@@ -20,11 +20,12 @@ async fn main() -> Result<()> {
         Commands::Login { .. } => login(args.command, conf).await,
         Commands::Pr(PrCommands::Create { .. }) => create(args.command, conf).await,
         Commands::Pr(PrCommands::Get { .. }) => get(args.command, conf).await,
-        Commands::Pr(PrCommands::Open { branch, dir }) => {
+        Commands::Pr(PrCommands::Open { branch, dir, auth }) => {
             let command = Commands::Pr(PrCommands::Get {
                 branch,
                 dir,
                 open: true,
+                auth,
             });
             get(command, conf).await
         }

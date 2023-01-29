@@ -6,8 +6,11 @@ use color_eyre::{
     eyre::{eyre, ContextCompat},
     Result,
 };
-use gr::git::{git::LocalRepository, url::parse_url};
 use gr::vcs::common::{init_vcs, CreatePullRequest};
+use gr::{
+    git::{git::LocalRepository, url::parse_url},
+    vcs::common::VersionControlSettings,
+};
 
 pub async fn create(command: Commands, mut conf: Configuration) -> Result<()> {
     if let Commands::Pr(PrCommands::Create {
@@ -19,17 +22,27 @@ pub async fn create(command: Commands, mut conf: Configuration) -> Result<()> {
         delete,
         open,
         reviewers,
+        auth,
     }) = command
     {
         let repo = LocalRepository::init(dir)?;
         let (remote_url, remote_branch) = repo.get_remote_branch(branch)?;
         let (hostname, repo) = parse_url(&remote_url)?;
 
-        let settings = conf.find_settings(&hostname, &repo).wrap_err(eyre!(
-            "Authentication not found for {} {}.",
-            &hostname,
-            &repo
-        ))?;
+        // Find settings or use the auth command
+        let settings = conf.find_settings(&hostname, &repo);
+        let settings = if let Some(auth) = auth {
+            VersionControlSettings {
+                auth,
+                ..settings.unwrap_or_default()
+            }
+        } else {
+            settings.wrap_err(eyre!(
+                "Authentication not found for {} in {}.",
+                &hostname,
+                &repo
+            ))?
+        };
 
         let is_default_branch = target.is_none();
 

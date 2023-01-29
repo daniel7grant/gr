@@ -49,9 +49,6 @@ pub enum PrCommands {
         /// Change the source branch (default: the current branch)
         #[arg(short, long)]
         branch: Option<String>,
-        /// Change the repo directory (default: the current directory)
-        #[arg(long)]
-        dir: Option<String>,
         /// Change the target branch (default: the default branch in the repo)
         #[arg(long)]
         target: Option<String>,
@@ -64,18 +61,27 @@ pub enum PrCommands {
         /// Open the pull request in the browser
         #[arg(long)]
         open: bool,
+        /// Change the repo directory (default: the current directory)
+        #[arg(long)]
+        dir: Option<String>,
+        /// Change the authentication token (default: find in configuration)
+        #[arg(long)]
+        auth: Option<String>,
     },
     /// Get the open pull request for the current branch
     Get {
         /// Change the source branch (default: the current branch)
         #[arg(short, long)]
         branch: Option<String>,
-        /// Change the repo directory (default: the current directory)
-        #[arg(long)]
-        dir: Option<String>,
         /// Open the pull request in the browser
         #[arg(long)]
         open: bool,
+        /// Change the repo directory (default: the current directory)
+        #[arg(long)]
+        dir: Option<String>,
+        /// Change the authentication token (default: find in configuration)
+        #[arg(long)]
+        auth: Option<String>,
     },
     /// Open the pull request in the browser
     Open {
@@ -85,6 +91,9 @@ pub enum PrCommands {
         /// Change the repo directory (default: the current directory)
         #[arg(long)]
         dir: Option<String>,
+        /// Change the authentication token (default: find in configuration)
+        #[arg(long)]
+        auth: Option<String>,
     },
     /// List pull requests for the current repo
     List {
@@ -97,6 +106,9 @@ pub enum PrCommands {
         /// Change the repo directory (default: the current directory)
         #[arg(long)]
         dir: Option<String>,
+        /// Change the authentication token (default: find in configuration)
+        #[arg(long)]
+        auth: Option<String>,
     },
     /// Approve the pull request for the current branch
     Approve {
@@ -105,17 +117,23 @@ pub enum PrCommands {
         /// Change the repo directory (default: the current directory)
         #[arg(long)]
         dir: Option<String>,
+        /// Change the authentication token (default: find in configuration)
+        #[arg(long)]
+        auth: Option<String>,
     },
     /// Merge the pull request for the current branch
     Merge {
         #[arg(short, long)]
         branch: Option<String>,
-        /// Change the repo directory (default: the current directory)
-        #[arg(long)]
-        dir: Option<String>,
         /// Delete source branch after merging (Gitlab and Bitbucket only)
         #[arg(long)]
         delete: bool,
+        /// Change the repo directory (default: the current directory)
+        #[arg(long)]
+        dir: Option<String>,
+        /// Change the authentication token (default: find in configuration)
+        #[arg(long)]
+        auth: Option<String>,
     },
     /// Close (decline) the pull request for the current branch
     #[command(alias = "decline")]
@@ -125,6 +143,9 @@ pub enum PrCommands {
         /// Change the repo directory (default: the current directory)
         #[arg(long)]
         dir: Option<String>,
+        /// Change the authentication token (default: find in configuration)
+        #[arg(long)]
+        auth: Option<String>,
     },
 }
 
