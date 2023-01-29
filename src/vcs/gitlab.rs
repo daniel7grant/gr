@@ -189,6 +189,11 @@ pub struct GitLabUpdatePullRequest {
     pub state_event: Option<GitLabUpdatePullRequestStateEvent>,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct GitLabMergePullRequest {
+    pub should_remove_source_branch: bool,
+}
+
 pub struct GitLab {
     settings: VersionControlSettings,
     client: Client,
@@ -231,7 +236,7 @@ impl GitLab {
         self.call::<GitLabRepository, i32>(Method::GET, &self.get_repository_url(""), None)
             .await
     }
-    
+
     async fn get_user_by_name(&self, username: &str) -> Result<User> {
         let users: Vec<GitLabUser> = self
             .call(
@@ -348,12 +353,14 @@ impl VersionControl for GitLab {
 
         Ok(pr.into())
     }
-    async fn merge_pr(&self, id: u32) -> Result<()> {
+    async fn merge_pr(&self, id: u32, should_remove_source_branch: bool) -> Result<()> {
         let _: GitLabPullRequest = self
             .call(
                 Method::PUT,
                 &self.get_repository_url(&format!("/merge_requests/{id}/merge")),
-                None as Option<i32>,
+                Some(GitLabMergePullRequest {
+                    should_remove_source_branch,
+                }),
             )
             .await?;
 

@@ -58,9 +58,9 @@ pub enum PrCommands {
         /// Change the target branch (default: the default branch in the repo)
         #[arg(short, long = "reviewer")]
         reviewers: Option<Vec<String>>,
-        /// Close source branch after merging
+        /// Delete source branch after merging (Gitlab and Bitbucket only)
         #[arg(long)]
-        close: bool,
+        delete: bool,
         /// Open the pull request in the browser
         #[arg(long)]
         open: bool,
@@ -113,6 +113,9 @@ pub enum PrCommands {
         /// Change the repo directory (default: the current directory)
         #[arg(long)]
         dir: Option<String>,
+        /// Delete source branch after merging (Gitlab and Bitbucket only)
+        #[arg(long)]
+        delete: bool,
     },
     /// Close (decline) the pull request for the current branch
     #[command(alias = "decline")]

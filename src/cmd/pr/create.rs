@@ -16,7 +16,7 @@ pub async fn create(command: Commands, mut conf: Configuration) -> Result<()> {
         branch,
         dir,
         target,
-        close,
+        delete,
         open,
         reviewers,
     }) = command
@@ -43,7 +43,7 @@ pub async fn create(command: Commands, mut conf: Configuration) -> Result<()> {
                 description: description.unwrap_or_default(),
                 source: remote_branch,
                 target,
-                close_source_branch: close,
+                close_source_branch: delete,
                 reviewers,
             })
             .await?;

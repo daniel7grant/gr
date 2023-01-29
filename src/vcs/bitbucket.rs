@@ -164,6 +164,11 @@ pub struct BitbucketCreatePullRequest {
     pub reviewers: Vec<BitbucketReviewer>,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct BitbucketMergePullRequest {
+    pub close_source_branch: bool,
+}
+
 impl From<CreatePullRequest> for BitbucketCreatePullRequest {
     fn from(pr: CreatePullRequest) -> Self {
         let CreatePullRequest {
@@ -348,12 +353,14 @@ impl VersionControl for Bitbucket {
 
         Ok(pr.into())
     }
-    async fn merge_pr(&self, id: u32) -> Result<()> {
+    async fn merge_pr(&self, id: u32, close_source_branch: bool) -> Result<()> {
         let _: BitbucketPullRequest = self
             .call(
                 Method::POST,
                 &self.get_repository_url(&format!("/pullrequests/{id}/merge")),
-                None as Option<i32>,
+                Some(BitbucketMergePullRequest {
+                    close_source_branch,
+                }),
             )
             .await?;
 

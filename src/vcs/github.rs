@@ -320,7 +320,7 @@ impl VersionControl for GitHub {
 
         Ok(pr.into())
     }
-    async fn merge_pr(&self, id: u32) -> Result<()> {
+    async fn merge_pr(&self, id: u32, delete_source_branch: bool) -> Result<()> {
         let _: GitHubPullRequestMerged = self
             .call(
                 Method::PUT,
