@@ -1,4 +1,4 @@
-use clap::{Command, CommandFactory, Parser, Subcommand, ValueEnum};
+use clap::{ArgAction, Command, CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::{generate, Generator, Shell};
 use std::io;
 use std::process;
@@ -144,6 +144,9 @@ pub struct Cli {
     /// Change the authentication token (default: find in configuration)
     #[arg(long, global = true)]
     pub auth: Option<String>,
+    /// Print logging information (-v info, -vv debug, -vvv trace)
+    #[arg(long, short, global = true, action = ArgAction::Count)]
+    pub verbose: u8,
 }
 
 fn print_completions<G: Generator>(gen: G, cmd: &mut Command) {

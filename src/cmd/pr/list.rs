@@ -14,9 +14,13 @@ use gr::{
     git::{git::LocalRepository, url::parse_url},
     vcs::common::{ListPullRequestFilters, PullRequestState},
 };
+use tracing::instrument;
 
+#[instrument]
 pub async fn list(args: Cli, conf: Configuration) -> Result<()> {
-    let Cli { command, dir, auth, .. } = args;
+    let Cli {
+        command, dir, auth, ..
+    } = args;
     if let Commands::Pr(PrCommands::List { author, state }) = command {
         let repo = LocalRepository::init(dir)?;
         // Find remote from branch upstream, or fallback to origin or any remote

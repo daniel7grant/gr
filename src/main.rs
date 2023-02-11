@@ -8,12 +8,23 @@ use cmd::{
 };
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
+use tracing::{info, metadata::LevelFilter};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
 
     let mut args = Cli::parse_args();
+
+    tracing_subscriber::fmt()
+        .with_max_level(match args.verbose {
+            1 => LevelFilter::INFO,
+            2 => LevelFilter::DEBUG,
+            3 => LevelFilter::TRACE,
+            _ => LevelFilter::OFF,
+        })
+        .init();
+
     let conf = Configuration::parse()?;
 
     match args.command {
