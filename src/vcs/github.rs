@@ -8,6 +8,8 @@ use chrono::{DateTime, Utc};
 use color_eyre::{eyre::eyre, Result};
 use reqwest::{Client, Method};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use std::fmt::Debug;
+use tracing::instrument;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GitHubUser {
@@ -182,6 +184,7 @@ pub struct GitHubPullRequestMerged {
     message: String,
 }
 
+#[derive(Debug)]
 pub struct GitHub {
     settings: VersionControlSettings,
     client: Client,
@@ -189,11 +192,12 @@ pub struct GitHub {
 }
 
 impl GitHub {
+    #[instrument]
     fn get_repository_url(&self, url: &str) -> String {
         format!("/repos/{}{}", self.repo, url)
     }
-
-    async fn call<T: DeserializeOwned, U: Serialize>(
+    #[instrument]
+    async fn call<T: DeserializeOwned, U: Serialize + Debug>(
         &self,
         method: Method,
         url: &str,
@@ -220,6 +224,7 @@ impl GitHub {
         }
     }
 
+    #[instrument]
     async fn get_repository_data(&self) -> Result<GitHubRepository> {
         self.call::<GitHubRepository, i32>(Method::GET, "", None)
             .await
@@ -228,6 +233,7 @@ impl GitHub {
 
 #[async_trait]
 impl VersionControl for GitHub {
+    #[instrument]
     fn init(_: String, repo: String, settings: VersionControlSettings) -> Self {
         let client = Client::new();
         GitHub {
@@ -236,9 +242,12 @@ impl VersionControl for GitHub {
             repo,
         }
     }
+    #[instrument]
     fn login_url(&self) -> String {
         "https://github.com/settings/tokens/new?description=gr&scopes=repo,project".to_string()
     }
+
+    #[instrument]
     fn validate_token(&self, token: &str) -> Result<()> {
         if token.starts_with("ghp_") {
             Err(eyre!("Your GitHub token has to start with `ghp`."))
@@ -248,6 +257,8 @@ impl VersionControl for GitHub {
             Ok(())
         }
     }
+
+    #[instrument]
     async fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {
         let reviewers = pr.reviewers.clone();
         pr.target = pr.target.or(self.settings.default_branch.clone());
@@ -272,6 +283,8 @@ impl VersionControl for GitHub {
 
         Ok(new_pr.into())
     }
+
+    #[instrument]
     async fn get_pr_by_id(&self, id: u32) -> Result<PullRequest> {
         let pr: GitHubPullRequest = self
             .call(
@@ -283,6 +296,8 @@ impl VersionControl for GitHub {
 
         Ok(pr.into())
     }
+
+    #[instrument]
     async fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest> {
         let prs: Vec<GitHubPullRequest> = self
             .call(
@@ -297,6 +312,8 @@ impl VersionControl for GitHub {
             None => Err(eyre!("Pull request on branch {branch} not found.")),
         }
     }
+
+    #[instrument]
     async fn list_prs(&self, filters: ListPullRequestFilters) -> Result<Vec<PullRequest>> {
         let state = match filters.state {
             PullRequestStateFilter::Open => "open",
@@ -315,6 +332,8 @@ impl VersionControl for GitHub {
 
         Ok(prs.into_iter().map(|pr| pr.into()).collect())
     }
+
+    #[instrument]
     async fn approve_pr(&self, id: u32) -> Result<()> {
         self.call(
             Method::POST,
@@ -328,6 +347,8 @@ impl VersionControl for GitHub {
 
         Ok(())
     }
+
+    #[instrument]
     async fn close_pr(&self, id: u32) -> Result<PullRequest> {
         let closing = GitHubUpdatePullRequest {
             state: Some(GitHubPullRequestState::Closed),
@@ -343,6 +364,8 @@ impl VersionControl for GitHub {
 
         Ok(pr.into())
     }
+
+    #[instrument]
     async fn merge_pr(&self, id: u32, _: bool) -> Result<PullRequest> {
         let _: GitHubPullRequestMerged = self
             .call(

@@ -8,7 +8,7 @@ pub fn init_tracing(verbosity: u8) -> Result<()> {
         env::set_var("RUST_SPANTRACE", if verbosity == 3 { "1" } else { "0" });
     }
     if env::var("RUST_BACKTRACE").is_err() {
-        env::set_var("RUST_BACKTRACE", if verbosity == 3 { "full" } else { "0" });
+        env::set_var("RUST_BACKTRACE", if verbosity == 3 { "1" } else { "0" });
     }
 
     color_eyre::config::HookBuilder::default()
