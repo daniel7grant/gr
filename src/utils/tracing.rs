@@ -1,23 +1,29 @@
 use color_eyre::Result;
 use std::env;
-use tracing::metadata::LevelFilter;
 use tracing_error::ErrorLayer;
-use tracing_subscriber::{fmt, prelude::*};
+use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 pub fn init_tracing(verbosity: u8) -> Result<()> {
     if env::var("RUST_SPANTRACE").is_err() {
         env::set_var("RUST_SPANTRACE", if verbosity == 3 { "1" } else { "0" });
     }
+    if env::var("RUST_BACKTRACE").is_err() {
+        env::set_var("RUST_BACKTRACE", if verbosity == 3 { "full" } else { "0" });
+    }
 
-    color_eyre::install()?;
+    color_eyre::config::HookBuilder::default()
+        .display_env_section(false)
+        .install()?;
+
     tracing_subscriber::registry()
         .with(ErrorLayer::default())
-        .with(fmt::layer().with_filter(match verbosity {
-            1 => LevelFilter::INFO,
-            2 => LevelFilter::DEBUG,
-            3 => LevelFilter::TRACE,
-            _ => LevelFilter::OFF,
+        .with(EnvFilter::from(match verbosity {
+            1 => "gr=info",
+            2 => "gr=debug",
+            3 => "gr=trace,debug",
+            _ => "off",
         }))
+        .with(fmt::layer())
         .init();
 
     Ok(())
