@@ -9,14 +9,10 @@ use cmd::{
 };
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
+use std::process;
 use utils::tracing::init_tracing;
 
-#[tokio::main]
-async fn main() -> Result<()> {
-    let mut args = Cli::parse_args();
-
-    init_tracing(args.verbose)?;
-
+async fn run(mut args: Cli) -> Result<()> {
     let conf = Configuration::parse()?;
 
     match args.command {
@@ -32,5 +28,25 @@ async fn main() -> Result<()> {
         Commands::Pr(PrCommands::Merge { .. }) => merge(args, conf).await,
         Commands::Pr(PrCommands::Close { .. }) => close(args, conf).await,
         Commands::Completion { .. } => Err(eyre!("Invalid command.")),
+    }
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let args = Cli::parse_args();
+    let verbose = args.verbose;
+
+    init_tracing(verbose)?;
+
+    match run(args).await {
+        Ok(_) => Ok(()),
+        Err(err) => {
+            if verbose == 0 {
+                println!("Error: {}", err);
+                process::exit(1)
+            } else {
+                Err(err)
+            }
+        }
     }
 }
