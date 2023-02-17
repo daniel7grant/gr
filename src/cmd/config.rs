@@ -6,6 +6,7 @@ use dirs::config_dir;
 use gr::vcs::common::VersionControlSettings;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs::read_to_string, fs::write};
+use tracing::instrument;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RepositoryConfig {
@@ -28,6 +29,7 @@ pub struct Configuration {
 }
 
 impl Configuration {
+    #[instrument]
     pub fn get_default_config_file_path() -> Result<String> {
         let config_file_path = config_dir()
             .map(|dir| dir.join("gr.json"))
@@ -40,6 +42,7 @@ impl Configuration {
         Ok(config_file_path.to_string())
     }
 
+    #[instrument]
     pub fn parse() -> Result<Configuration> {
         let config_file_path = Configuration::get_default_config_file_path()?;
         let config_content = read_to_string(&config_file_path).wrap_err(eyre!(
@@ -59,6 +62,7 @@ impl Configuration {
         Ok(Configuration { vcs })
     }
 
+    #[instrument]
     pub fn save(self) -> Result<()> {
         let config_file_path = Configuration::get_default_config_file_path()?;
         let content = serde_json::to_string_pretty(&self.vcs).wrap_err("Cannot serialize data.")?;
@@ -70,6 +74,7 @@ impl Configuration {
         Ok(())
     }
 
+    #[instrument]
     pub fn find_settings(&self, hostname: &str, repo: &str) -> Option<VersionControlSettings> {
         let vcs = self.vcs.get(hostname);
         vcs.map(|v| {

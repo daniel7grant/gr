@@ -4,12 +4,14 @@ use color_eyre::{
 };
 use git2::{BranchType, Repository, RepositoryOpenFlags};
 use std::{env, path::PathBuf};
+use tracing::instrument;
 
 pub struct LocalRepository {
     repository: Repository,
 }
 
 impl LocalRepository {
+    #[instrument]
     pub fn init(path: Option<String>) -> Result<LocalRepository> {
         let path = if let Some(path) = path {
             PathBuf::from(path)
@@ -23,6 +25,7 @@ impl LocalRepository {
         Ok(LocalRepository { repository })
     }
 
+    #[instrument(skip_all)]
     pub fn get_branch(self: &LocalRepository) -> Result<String> {
         let head = self
             .repository
@@ -34,6 +37,7 @@ impl LocalRepository {
         Ok(branch_shorthand.to_string())
     }
 
+    #[instrument(skip(self))]
     pub fn get_remote(self: &LocalRepository, remote_name: Option<String>) -> Result<String> {
         // Use given branch name if we can
         let remote_name = remote_name
@@ -64,6 +68,7 @@ impl LocalRepository {
         Ok(remote_url.to_string())
     }
 
+    #[instrument(skip(self))]
     pub fn get_remote_branch(
         self: &LocalRepository,
         branch_name: Option<String>,

@@ -2,7 +2,9 @@ use color_eyre::{
     eyre::{eyre, ContextCompat},
     Result,
 };
+use tracing::instrument;
 
+#[instrument]
 pub fn parse_url(url: &str) -> Result<(String, String)> {
     if let Some((first, rest)) = url.split_once(':') {
         // Split host and path based on protocol
