@@ -23,7 +23,7 @@ pub fn init_tracing(verbosity: u8) -> Result<()> {
             3 => "gr=trace,debug",
             _ => "off",
         }))
-        .with(fmt::layer())
+        .with(fmt::layer().with_target(verbosity > 1))
         .init();
 
     Ok(())
