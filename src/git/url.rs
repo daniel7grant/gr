@@ -2,7 +2,7 @@ use color_eyre::{
     eyre::{eyre, ContextCompat},
     Result,
 };
-use tracing::instrument;
+use tracing::{info, instrument};
 
 #[instrument]
 pub fn parse_url(url: &str) -> Result<(String, String)> {
@@ -21,6 +21,8 @@ pub fn parse_url(url: &str) -> Result<(String, String)> {
 
         // Remove ".git" from end if it is there
         let path = path.split_once(".git").map_or(path, |(p, _)| p);
+
+        info!("Parsed remote URL to host {host} and path {path}.");
 
         Ok((host.to_string(), path.to_string()))
     } else {

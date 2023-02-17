@@ -4,7 +4,7 @@ use color_eyre::{
 };
 use git2::{BranchType, Repository, RepositoryOpenFlags};
 use std::{env, path::PathBuf};
-use tracing::instrument;
+use tracing::{info, instrument};
 
 pub struct LocalRepository {
     repository: Repository,
@@ -18,6 +18,7 @@ impl LocalRepository {
         } else {
             env::current_dir()?
         };
+        info!("Repository directory is {}.", path.to_string_lossy());
         let repository =
             Repository::open_ext(path, RepositoryOpenFlags::empty(), vec![] as Vec<String>)
                 .wrap_err("There is no git repository in the current directory.")?;
@@ -34,6 +35,9 @@ impl LocalRepository {
         let branch_shorthand = head
             .shorthand()
             .wrap_err("Branch name is not valid UTF-8.")?;
+
+        info!("Current branch is {branch_shorthand}.");
+
         Ok(branch_shorthand.to_string())
     }
 
@@ -64,6 +68,8 @@ impl LocalRepository {
             .find_remote(&remote_name)
             .wrap_err(eyre!("Remote URL with name {} not found.", remote_name))?;
         let remote_url = remote.url().wrap_err("Remote URL is not valid UTF-8.")?;
+
+        info!("Using remote {remote_name} with url {remote_url}.");
 
         Ok(remote_url.to_string())
     }
@@ -96,6 +102,8 @@ impl LocalRepository {
         ))?;
 
         let remote_url = self.get_remote(Some(remote_name.to_string()))?;
+
+        info!("Using remote {remote_name} with url {remote_url}.");
 
         Ok((remote_url.to_string(), remote_branch.to_string()))
     }
