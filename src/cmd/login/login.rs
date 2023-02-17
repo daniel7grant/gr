@@ -14,7 +14,7 @@ use inquire::Text;
 use tokio::time::{sleep, Duration};
 use tracing::instrument;
 
-#[instrument(skip(conf))]
+#[instrument(skip_all)]
 pub async fn login(args: Cli, mut conf: Configuration) -> Result<()> {
     let Cli { command, dir, .. } = args;
     if let Commands::Login {

@@ -16,7 +16,7 @@ use gr::{
 };
 use tracing::instrument;
 
-#[instrument(skip(conf))]
+#[instrument(skip_all)]
 pub async fn list(args: Cli, conf: Configuration) -> Result<()> {
     let Cli {
         command, dir, auth, ..
