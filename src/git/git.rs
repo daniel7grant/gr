@@ -4,7 +4,7 @@ use color_eyre::{
 };
 use git2::{BranchType, Repository, RepositoryOpenFlags};
 use std::{env, path::PathBuf};
-use tracing::{info, instrument};
+use tracing::{info, instrument, debug};
 
 pub struct LocalRepository {
     repository: Repository,
@@ -103,7 +103,7 @@ impl LocalRepository {
 
         let remote_url = self.get_remote(Some(remote_name.to_string()))?;
 
-        info!("Using remote {remote_name} with url {remote_url}.");
+        debug!("Using remote {remote_name} with url {remote_url}.");
 
         Ok((remote_url.to_string(), remote_branch.to_string()))
     }
