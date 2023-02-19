@@ -23,5 +23,5 @@ serde_json = "1.0.91"
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1.37"
 tracing-error = "0.2.0"
-tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3.16", features = ["env-filter", "json"] }
 urlencoding = "2.1.2"
