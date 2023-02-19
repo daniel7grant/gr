@@ -6,6 +6,7 @@ use dirs::config_dir;
 use gr::vcs::common::VersionControlSettings;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs::read_to_string, fs::write};
+use tracing::{info, instrument, trace};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RepositoryConfig {
@@ -28,6 +29,7 @@ pub struct Configuration {
 }
 
 impl Configuration {
+    #[instrument]
     pub fn get_default_config_file_path() -> Result<String> {
         let config_file_path = config_dir()
             .map(|dir| dir.join("gr.json"))
@@ -37,9 +39,12 @@ impl Configuration {
             .to_str()
             .wrap_err("Configuration filename cannot be found.")?;
 
+        info!("Configuration filename is {}.", config_file_path);
+
         Ok(config_file_path.to_string())
     }
 
+    #[instrument]
     pub fn parse() -> Result<Configuration> {
         let config_file_path = Configuration::get_default_config_file_path()?;
         let config_content = read_to_string(&config_file_path).wrap_err(eyre!(
@@ -49,6 +54,7 @@ impl Configuration {
 
         let vcs: HashMap<String, VcsConfig> = config_content
             .and_then(|content| {
+                trace!("Configuration file content: {}.", &content.chars().filter(|c| !c.is_whitespace()).collect::<String>());
                 serde_json::from_str(&content).wrap_err(eyre!(
                     "Configuration file {} cannot be JSON parsed.",
                     &config_file_path
@@ -59,9 +65,11 @@ impl Configuration {
         Ok(Configuration { vcs })
     }
 
+    #[instrument]
     pub fn save(self) -> Result<()> {
         let config_file_path = Configuration::get_default_config_file_path()?;
         let content = serde_json::to_string_pretty(&self.vcs).wrap_err("Cannot serialize data.")?;
+        trace!("Configuration file to write: {:?}.", &content.chars().filter(|c| !c.is_whitespace()).collect::<String>());
         write(&config_file_path, content).wrap_err(eyre!(
             "Cannot write to configuration file {}.",
             &config_file_path
@@ -70,6 +78,7 @@ impl Configuration {
         Ok(())
     }
 
+    #[instrument]
     pub fn find_settings(&self, hostname: &str, repo: &str) -> Option<VersionControlSettings> {
         let vcs = self.vcs.get(hostname);
         vcs.map(|v| {

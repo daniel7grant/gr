@@ -4,18 +4,21 @@ use color_eyre::{
 };
 use git2::{BranchType, Repository, RepositoryOpenFlags};
 use std::{env, path::PathBuf};
+use tracing::{info, instrument, debug};
 
 pub struct LocalRepository {
     repository: Repository,
 }
 
 impl LocalRepository {
+    #[instrument]
     pub fn init(path: Option<String>) -> Result<LocalRepository> {
         let path = if let Some(path) = path {
             PathBuf::from(path)
         } else {
             env::current_dir()?
         };
+        info!("Repository directory is {}.", path.to_string_lossy());
         let repository =
             Repository::open_ext(path, RepositoryOpenFlags::empty(), vec![] as Vec<String>)
                 .wrap_err("There is no git repository in the current directory.")?;
@@ -23,6 +26,7 @@ impl LocalRepository {
         Ok(LocalRepository { repository })
     }
 
+    #[instrument(skip_all)]
     pub fn get_branch(self: &LocalRepository) -> Result<String> {
         let head = self
             .repository
@@ -31,9 +35,13 @@ impl LocalRepository {
         let branch_shorthand = head
             .shorthand()
             .wrap_err("Branch name is not valid UTF-8.")?;
+
+        info!("Current branch is {branch_shorthand}.");
+
         Ok(branch_shorthand.to_string())
     }
 
+    #[instrument(skip(self))]
     pub fn get_remote(self: &LocalRepository, remote_name: Option<String>) -> Result<String> {
         // Use given branch name if we can
         let remote_name = remote_name
@@ -61,9 +69,12 @@ impl LocalRepository {
             .wrap_err(eyre!("Remote URL with name {} not found.", remote_name))?;
         let remote_url = remote.url().wrap_err("Remote URL is not valid UTF-8.")?;
 
+        info!("Using remote {remote_name} with url {remote_url}.");
+
         Ok(remote_url.to_string())
     }
 
+    #[instrument(skip(self))]
     pub fn get_remote_branch(
         self: &LocalRepository,
         branch_name: Option<String>,
@@ -91,6 +102,8 @@ impl LocalRepository {
         ))?;
 
         let remote_url = self.get_remote(Some(remote_name.to_string()))?;
+
+        debug!("Using remote {remote_name} with url {remote_url}.");
 
         Ok((remote_url.to_string(), remote_branch.to_string()))
     }

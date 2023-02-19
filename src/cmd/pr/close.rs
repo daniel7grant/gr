@@ -11,13 +11,16 @@ use gr::{
     git::{git::LocalRepository, url::parse_url},
     vcs::common::VersionControlSettings,
 };
+use tracing::instrument;
 
+#[instrument(skip_all, fields(command = ?args.command))]
 pub async fn close(args: Cli, conf: Configuration) -> Result<()> {
     let Cli {
         command,
         branch,
         dir,
         auth,
+        ..
     } = args;
     if let Commands::Pr(PrCommands::Close {}) = command {
         let repo = LocalRepository::init(dir)?;

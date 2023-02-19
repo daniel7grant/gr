@@ -9,6 +9,8 @@ use color_eyre::{eyre::eyre, Result};
 use futures::future;
 use reqwest::{Client, Method};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use std::fmt::Debug;
+use tracing::{info, instrument, trace};
 use urlencoding::encode;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -194,6 +196,7 @@ pub struct GitLabMergePullRequest {
     pub should_remove_source_branch: bool,
 }
 
+#[derive(Debug)]
 pub struct GitLab {
     settings: VersionControlSettings,
     client: Client,
@@ -202,41 +205,63 @@ pub struct GitLab {
 }
 
 impl GitLab {
+    #[instrument(skip_all)]
     fn get_repository_url(&self, url: &str) -> String {
         format!("/projects/{}{}", encode(&self.repo).into_owned(), url)
     }
 
-    async fn call<T: DeserializeOwned, U: Serialize>(
+    #[instrument(skip_all)]
+    async fn call<T: DeserializeOwned, U: Serialize + Debug>(
         &self,
         method: Method,
         url: &str,
         body: Option<U>,
     ) -> Result<T> {
+        let url = format!("https://{}/api/v4{}", self.hostname, url);
+        
+		info!("Calling with {method} on {url}.");
+
+        let token = &self.settings.auth;
+
+        trace!("Authenticating with token '{token}'.");
+
         let mut request = self
             .client
-            .request(method, format!("https://{}/api/v4{}", self.hostname, url))
-            .header("Authorization", format!("Bearer {}", &self.settings.auth))
+            .request(method, url)
+            .header("Authorization", format!("Bearer {}", token))
             .header("Content-Type", "application/json");
         if let Some(body) = body {
             request = request.json(&body);
+
+            trace!("Sending body: {}.", serde_json::to_string(&body)?);
         }
 
         let result = request.send().await?;
         let status = result.status();
+        let t = result.text().await?;
+
+        info!(
+            "Received response with response code {} with body size {}.",
+            status,
+            t.len()
+        );
+        trace!("Response body: {t}.");
+
         if status.is_client_error() || status.is_server_error() {
-            let t = result.text().await?;
             Err(eyre!("Request failed (response: {}).", t))
         } else {
-            let t: T = result.json().await?;
+            let t: T = serde_json::from_str(&t)?;
             Ok(t)
         }
     }
 
+    #[instrument(skip_all)]
     async fn get_repository_data(&self) -> Result<GitLabRepository> {
         self.call::<GitLabRepository, i32>(Method::GET, &self.get_repository_url(""), None)
             .await
     }
 
+    #[instrument(skip(self))]
     async fn get_user_by_name(&self, username: &str) -> Result<User> {
         let users: Vec<GitLabUser> = self
             .call(
@@ -255,6 +280,7 @@ impl GitLab {
 
 #[async_trait]
 impl VersionControl for GitLab {
+    #[instrument(skip_all)]
     fn init(hostname: String, repo: String, settings: VersionControlSettings) -> Self {
         let client = Client::new();
         GitLab {
@@ -264,9 +290,14 @@ impl VersionControl for GitLab {
             repo,
         }
     }
+    #[instrument(skip_all)]
     fn login_url(&self) -> String {
-        format!("https://{}/-/profile/personal_access_tokens?name=gr&scopes=read_user,api", self.hostname)
+        format!(
+            "https://{}/-/profile/personal_access_tokens?name=gr&scopes=read_user,api",
+            self.hostname
+        )
     }
+    #[instrument(skip_all)]
     fn validate_token(&self, token: &str) -> Result<()> {
         if token.len() != 20 {
             Err(eyre!("Your GitLab token has to be 20 characters long."))
@@ -274,6 +305,7 @@ impl VersionControl for GitLab {
             Ok(())
         }
     }
+    #[instrument(skip(self))]
     async fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {
         let reviewers = future::join_all(
             pr.reviewers
@@ -289,6 +321,7 @@ impl VersionControl for GitLab {
         pr.target = pr.target.or(self.settings.default_branch.clone());
         if pr.target.is_none() {
             let GitLabRepository { default_branch, .. } = self.get_repository_data().await?;
+            info!("Using {default_branch} as target branch.");
             pr.target = Some(default_branch);
         }
         let new_pr: GitLabPullRequest = self
@@ -301,6 +334,7 @@ impl VersionControl for GitLab {
 
         Ok(new_pr.into())
     }
+    #[instrument(skip(self))]
     async fn get_pr_by_id(&self, id: u32) -> Result<PullRequest> {
         let pr: GitLabPullRequest = self
             .call(
@@ -312,6 +346,7 @@ impl VersionControl for GitLab {
 
         Ok(pr.into())
     }
+    #[instrument(skip(self))]
     async fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest> {
         let prs: Vec<GitLabPullRequest> = self
             .call(
@@ -326,6 +361,7 @@ impl VersionControl for GitLab {
             None => Err(eyre!("Pull request on branch {branch} not found.")),
         }
     }
+    #[instrument(skip(self))]
     async fn list_prs(&self, filters: ListPullRequestFilters) -> Result<Vec<PullRequest>> {
         let scope_param = match filters.author {
             PullRequestUserFilter::All => "?scope=all",
@@ -348,6 +384,7 @@ impl VersionControl for GitLab {
 
         Ok(prs.into_iter().map(|pr| pr.into()).collect())
     }
+    #[instrument(skip(self))]
     async fn approve_pr(&self, id: u32) -> Result<()> {
         let _: GitLabApproval = self
             .call(
@@ -359,6 +396,7 @@ impl VersionControl for GitLab {
 
         Ok(())
     }
+    #[instrument(skip(self))]
     async fn close_pr(&self, id: u32) -> Result<PullRequest> {
         let closing = GitLabUpdatePullRequest {
             state_event: Some(GitLabUpdatePullRequestStateEvent::Close),
@@ -374,6 +412,7 @@ impl VersionControl for GitLab {
 
         Ok(pr.into())
     }
+    #[instrument(skip(self))]
     async fn merge_pr(&self, id: u32, should_remove_source_branch: bool) -> Result<PullRequest> {
         let pr: GitLabPullRequest = self
             .call(

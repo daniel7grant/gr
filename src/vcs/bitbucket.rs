@@ -9,6 +9,7 @@ use color_eyre::{eyre::eyre, eyre::ContextCompat, Result};
 use reqwest::{Client, Method};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt::Debug;
+use tracing::{info, instrument, trace};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub enum BitbucketPullRequestState {
@@ -208,6 +209,7 @@ pub struct BitbucketPaginated<T> {
     pub values: Vec<T>,
 }
 
+#[derive(Debug)]
 pub struct Bitbucket {
     settings: VersionControlSettings,
     client: Client,
@@ -215,44 +217,66 @@ pub struct Bitbucket {
 }
 
 impl Bitbucket {
+    #[instrument(skip_all)]
     fn get_repository_url(&self, url: &str) -> String {
         format!("/repositories/{}{}", self.repo, url)
     }
 
+    #[instrument(skip_all)]
     async fn call<T: DeserializeOwned, U: Serialize + Debug>(
         &self,
         method: Method,
         url: &str,
         body: Option<U>,
     ) -> Result<T> {
+        let url = format!("https://api.bitbucket.org/2.0{url}");
+
+        info!("Calling with {method} {url}.");
+
         let (username, password) = self
             .settings
             .auth
             .split_once(':')
             .wrap_err("Authentication has to contain a username and a token.")?;
+
+        trace!("Authenticating with username '{username}' and token '{password}'.");
+
         let mut request = self
             .client
-            .request(method, format!("https://api.bitbucket.org/2.0{url}"))
+            .request(method, url)
             .basic_auth(username, Some(password));
         if let Some(body) = &body {
             request = request.json(body);
+
+            trace!("Sending body: {}.", serde_json::to_string(&body)?);
         }
 
         let result = request.send().await?;
         let status = result.status();
+        let t = result.text().await?;
+
+        info!(
+            "Received response with response code {} with body size {}.",
+            status,
+            t.len()
+        );
+        trace!("Response body: {t}.");
+
         if status.is_client_error() || status.is_server_error() {
-            let t = result.text().await?;
             Err(eyre!("Request failed (response: {}).", t))
         } else {
-            let t: T = result.json().await?;
+            let t: T = serde_json::from_str(&t)?;
             Ok(t)
         }
     }
 
+    #[instrument(skip(self))]
     async fn call_paginated<T: DeserializeOwned>(&self, url: &str) -> Result<Vec<T>> {
         let mut collected_values: Vec<T> = vec![];
         let mut i = 1;
         loop {
+            info!("Reading page {}.", i);
+
             let mut page: BitbucketPaginated<T> = self
                 .call(Method::GET, &format!("{url}?page={i}"), None as Option<i32>)
                 .await?;
@@ -268,6 +292,7 @@ impl Bitbucket {
         Ok(collected_values)
     }
 
+    #[instrument(skip(self))]
     async fn get_workspace_users(&self, usernames: Vec<String>) -> Result<Vec<BitbucketUser>> {
         let (workspace, _) = self
             .repo
@@ -287,6 +312,7 @@ impl Bitbucket {
 
 #[async_trait]
 impl VersionControl for Bitbucket {
+    #[instrument(skip_all)]
     fn init(_: String, repo: String, settings: VersionControlSettings) -> Self {
         let client = Client::new();
         Bitbucket {
@@ -295,9 +321,11 @@ impl VersionControl for Bitbucket {
             repo,
         }
     }
+    #[instrument(skip_all)]
     fn login_url(&self) -> String {
         "https://bitbucket.org/account/settings/app-passwords/new".to_string()
     }
+    #[instrument(skip_all)]
     fn validate_token(&self, token: &str) -> Result<()> {
         if !token.contains(":") {
             Err(eyre!("Enter your Bitbucket username and the token, separated with a colon (user:ABBT...)."))
@@ -305,6 +333,7 @@ impl VersionControl for Bitbucket {
             Ok(())
         }
     }
+    #[instrument(skip(self))]
     async fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {
         let reviewers = self.get_workspace_users(pr.reviewers.clone()).await?;
         pr.reviewers = reviewers.into_iter().map(|r| r.uuid).collect();
@@ -318,6 +347,7 @@ impl VersionControl for Bitbucket {
 
         Ok(new_pr.into())
     }
+    #[instrument(skip(self))]
     async fn get_pr_by_id(&self, id: u32) -> Result<PullRequest> {
         let pr: BitbucketPullRequest = self
             .call(
@@ -329,6 +359,7 @@ impl VersionControl for Bitbucket {
 
         Ok(pr.into())
     }
+    #[instrument(skip(self))]
     async fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest> {
         let prs: Vec<BitbucketPullRequest> = self
             .call_paginated(&self.get_repository_url("/pullrequests"))
@@ -339,6 +370,7 @@ impl VersionControl for Bitbucket {
             .map(|pr| pr.into())
             .wrap_err(eyre!("Pull request on branch {branch} not found."))
     }
+    #[instrument(skip(self))]
     async fn list_prs(&self, filters: ListPullRequestFilters) -> Result<Vec<PullRequest>> {
         let state_param = match filters.state {
             PullRequestStateFilter::Open => "?state=OPEN",
@@ -352,6 +384,7 @@ impl VersionControl for Bitbucket {
 
         Ok(prs.into_iter().map(|pr| pr.into()).collect())
     }
+    #[instrument(skip(self))]
     async fn approve_pr(&self, id: u32) -> Result<()> {
         let _: BitbucketApproval = self
             .call(
@@ -363,6 +396,7 @@ impl VersionControl for Bitbucket {
 
         Ok(())
     }
+    #[instrument(skip(self))]
     async fn close_pr(&self, id: u32) -> Result<PullRequest> {
         let pr: BitbucketPullRequest = self
             .call(
@@ -374,6 +408,7 @@ impl VersionControl for Bitbucket {
 
         Ok(pr.into())
     }
+    #[instrument(skip(self))]
     async fn merge_pr(&self, id: u32, close_source_branch: bool) -> Result<PullRequest> {
         let pr: BitbucketPullRequest = self
             .call(

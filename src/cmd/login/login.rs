@@ -12,7 +12,9 @@ use gr::{
 };
 use inquire::Text;
 use tokio::time::{sleep, Duration};
+use tracing::instrument;
 
+#[instrument(skip_all, fields(command = ?args.command))]
 pub async fn login(args: Cli, mut conf: Configuration) -> Result<()> {
     let Cli { command, dir, .. } = args;
     if let Commands::Login {

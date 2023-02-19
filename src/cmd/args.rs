@@ -1,4 +1,4 @@
-use clap::{Command, CommandFactory, Parser, Subcommand, ValueEnum};
+use clap::{ArgAction, Command, CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::{generate, Generator, Shell};
 use std::io;
 use std::process;
@@ -23,6 +23,15 @@ pub enum UserFilter {
     Me,
     /// Show all pull requests
     All,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Default)]
+pub enum OutputType {
+    /// Print output in a human-readable way (default)
+    #[default]
+    Normal,
+    /// Print output and logs as JSON
+    Json,
 }
 
 #[derive(Debug, Subcommand)]
@@ -144,6 +153,12 @@ pub struct Cli {
     /// Change the authentication token (default: find in configuration)
     #[arg(long, global = true)]
     pub auth: Option<String>,
+    /// Output type
+    #[arg(long, short, global = true, default_value = "normal")]
+    pub output: OutputType,
+    /// Print logging information (-v info, -vv debug, -vvv trace)
+    #[arg(long, short, global = true, action = ArgAction::Count)]
+    pub verbose: u8,
 }
 
 fn print_completions<G: Generator>(gen: G, cmd: &mut Command) {
