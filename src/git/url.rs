@@ -6,9 +6,8 @@ use tracing::{debug, instrument};
 
 #[instrument(skip_all)]
 pub fn parse_url(url: &str) -> Result<(String, String)> {
-	debug!("Parsing URL {url}.");
+    debug!("Parsing URL {url}.");
     if let Some((first, rest)) = url.split_once(':') {
-
         // Split host and path based on protocol
         let (host, path) = match first {
             "http" | "https" | "ssh" | "git" => rest[2..]
