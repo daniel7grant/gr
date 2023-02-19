@@ -9,7 +9,7 @@ use color_eyre::{eyre::eyre, eyre::ContextCompat, Result};
 use reqwest::{Client, Method};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt::Debug;
-use tracing::instrument;
+use tracing::{info, instrument, trace};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub enum BitbucketPullRequestState {
@@ -222,33 +222,50 @@ impl Bitbucket {
         format!("/repositories/{}{}", self.repo, url)
     }
 
-    #[instrument(skip(self, body))]
+    #[instrument(skip_all)]
     async fn call<T: DeserializeOwned, U: Serialize + Debug>(
         &self,
         method: Method,
         url: &str,
         body: Option<U>,
     ) -> Result<T> {
+        let url = format!("https://api.bitbucket.org/2.0{url}");
+
+        info!("Calling with {method} {url}.");
+
         let (username, password) = self
             .settings
             .auth
             .split_once(':')
             .wrap_err("Authentication has to contain a username and a token.")?;
+
+        trace!("Authenticating with username '{username}' and token '{password}'.");
+
         let mut request = self
             .client
-            .request(method, format!("https://api.bitbucket.org/2.0{url}"))
+            .request(method, url)
             .basic_auth(username, Some(password));
         if let Some(body) = &body {
             request = request.json(body);
+
+            trace!("Sending body: {}.", serde_json::to_string(&body)?);
         }
 
         let result = request.send().await?;
         let status = result.status();
+        let t = result.text().await?;
+
+        info!(
+            "Received response with response code {} with body size {}.",
+            status,
+            t.len()
+        );
+        trace!("Response body: {t}.");
+
         if status.is_client_error() || status.is_server_error() {
-            let t = result.text().await?;
             Err(eyre!("Request failed (response: {}).", t))
         } else {
-            let t: T = result.json().await?;
+            let t: T = serde_json::from_str(&t)?;
             Ok(t)
         }
     }
@@ -258,6 +275,8 @@ impl Bitbucket {
         let mut collected_values: Vec<T> = vec![];
         let mut i = 1;
         loop {
+            info!("Reading page {}.", i);
+
             let mut page: BitbucketPaginated<T> = self
                 .call(Method::GET, &format!("{url}?page={i}"), None as Option<i32>)
                 .await?;

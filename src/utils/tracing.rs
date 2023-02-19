@@ -20,7 +20,7 @@ pub fn init_tracing(verbosity: u8) -> Result<()> {
         .with(EnvFilter::from(match verbosity {
             1 => "gr=info",
             2 => "gr=debug",
-            3 => "gr=trace,debug",
+            3 => "gr=trace",
             _ => "off",
         }))
         .with(fmt::layer().with_target(verbosity > 1))

@@ -10,7 +10,7 @@ use futures::future;
 use reqwest::{Client, Method};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt::Debug;
-use tracing::instrument;
+use tracing::{info, instrument, trace};
 use urlencoding::encode;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -210,29 +210,47 @@ impl GitLab {
         format!("/projects/{}{}", encode(&self.repo).into_owned(), url)
     }
 
-    #[instrument(skip(self, body))]
+    #[instrument(skip_all)]
     async fn call<T: DeserializeOwned, U: Serialize + Debug>(
         &self,
         method: Method,
         url: &str,
         body: Option<U>,
     ) -> Result<T> {
+        let url = format!("https://{}/api/v4{}", self.hostname, url);
+        
+		info!("Calling with {method} on {url}.");
+
+        let token = &self.settings.auth;
+
+        trace!("Authenticating with token '{token}'.");
+
         let mut request = self
             .client
-            .request(method, format!("https://{}/api/v4{}", self.hostname, url))
-            .header("Authorization", format!("Bearer {}", &self.settings.auth))
+            .request(method, url)
+            .header("Authorization", format!("Bearer {}", token))
             .header("Content-Type", "application/json");
         if let Some(body) = body {
             request = request.json(&body);
+
+            trace!("Sending body: {}.", serde_json::to_string(&body)?);
         }
 
         let result = request.send().await?;
         let status = result.status();
+        let t = result.text().await?;
+
+        info!(
+            "Received response with response code {} with body size {}.",
+            status,
+            t.len()
+        );
+        trace!("Response body: {t}.");
+
         if status.is_client_error() || status.is_server_error() {
-            let t = result.text().await?;
             Err(eyre!("Request failed (response: {}).", t))
         } else {
-            let t: T = result.json().await?;
+            let t: T = serde_json::from_str(&t)?;
             Ok(t)
         }
     }
@@ -303,6 +321,7 @@ impl VersionControl for GitLab {
         pr.target = pr.target.or(self.settings.default_branch.clone());
         if pr.target.is_none() {
             let GitLabRepository { default_branch, .. } = self.get_repository_data().await?;
+            info!("Using {default_branch} as target branch.");
             pr.target = Some(default_branch);
         }
         let new_pr: GitLabPullRequest = self

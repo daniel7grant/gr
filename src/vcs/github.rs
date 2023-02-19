@@ -9,7 +9,7 @@ use color_eyre::{eyre::eyre, Result};
 use reqwest::{Client, Method};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt::Debug;
-use tracing::instrument;
+use tracing::{info, instrument, trace};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GitHubUser {
@@ -196,30 +196,48 @@ impl GitHub {
     fn get_repository_url(&self, url: &str) -> String {
         format!("/repos/{}{}", self.repo, url)
     }
-    #[instrument(skip(self, body))]
+    #[instrument(skip_all)]
     async fn call<T: DeserializeOwned, U: Serialize + Debug>(
         &self,
         method: Method,
         url: &str,
         body: Option<U>,
     ) -> Result<T> {
+        let url = format!("https://api.github.com{}", url);
+
+        info!("Calling with {method} on {url}.");
+
+        let token = &self.settings.auth;
+
+        trace!("Authenticating with token '{token}'.");
+
         let mut request = self
             .client
-            .request(method, format!("https://api.github.com{}", url))
+            .request(method, url)
             .header("User-Agent", "gr")
-            .header("Authorization", format!("Bearer {}", &self.settings.auth))
+            .header("Authorization", format!("Bearer {}", token))
             .header("Content-Type", "application/json");
         if let Some(body) = body {
             request = request.json(&body);
+
+            trace!("Sending body: {}.", serde_json::to_string(&body)?);
         }
 
         let result = request.send().await?;
         let status = result.status();
+        let t = result.text().await?;
+
+        info!(
+            "Received response with response code {} with body size {}.",
+            status,
+            t.len()
+        );
+        trace!("Response body: {t}.");
+
         if status.is_client_error() || status.is_server_error() {
-            let t = result.text().await?;
             Err(eyre!("Request failed (response: {}).", t))
         } else {
-            let t: T = result.json().await?;
+            let t: T = serde_json::from_str(&t)?;
             Ok(t)
         }
     }
