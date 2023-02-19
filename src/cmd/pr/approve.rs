@@ -13,7 +13,7 @@ use gr::{
 };
 use tracing::instrument;
 
-#[instrument(skip_all)]
+#[instrument(skip_all, fields(command = ?args.command))]
 pub async fn approve(args: Cli, conf: Configuration) -> Result<()> {
     let Cli {
         command,

@@ -35,8 +35,9 @@ async fn run(mut args: Cli) -> Result<()> {
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Cli::parse_args();
-    let verbose = args.verbose;
-    let output = args.output;
+    let Cli {
+        output, verbose, ..
+    } = args;
 
     init_tracing(verbose, output)?;
 
