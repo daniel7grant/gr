@@ -1,41 +1,47 @@
 use crate::vcs::common::{PullRequest, PullRequestState};
 use colored::Colorize;
 
+use super::utils::to_fixed_length;
+
 pub enum FormatterType {
-    Normal,
     Json,
+    Normal,
+    Short,
 }
 
 pub trait Formatter {
     fn show_json(&self) -> String;
     fn show_normal(&self) -> String;
+    fn show_short(&self) -> String;
     fn show(&self, formatter_type: FormatterType) -> String {
         match formatter_type {
-            FormatterType::Normal => self.show_normal(),
             FormatterType::Json => self.show_json(),
+            FormatterType::Normal => self.show_normal(),
+            FormatterType::Short => self.show_short(),
         }
     }
 }
+
+const FULL_SIZE: usize = 80;
+const ID_SIZE: usize = 6;
+const TITLE_SIZE: usize = FULL_SIZE - ID_SIZE - 1;
+const SHORT_BRANCH_SIZE: usize = 20;
+const SHORT_TITLE_SIZE: usize = FULL_SIZE - ID_SIZE - 1 - SHORT_BRANCH_SIZE - 1;
 
 impl Formatter for PullRequest {
     fn show_json(&self) -> String {
         serde_json::to_string(&self).unwrap()
     }
     fn show_normal(&self) -> String {
-        // On open false or failed browser opening, print the PR
-        let max_width_title = if self.title.len() > 73 {
-            format!("{}...", &self.title[0..70])
-        } else {
-            self.title.clone()
-        };
-        let colored_title = match self.state {
-            PullRequestState::Open => max_width_title.bold(),
-            PullRequestState::Closed => max_width_title.bold().red(),
-            PullRequestState::Merged => max_width_title.bold().green(),
-            PullRequestState::Locked => max_width_title.bold().magenta(),
+        let title = to_fixed_length(&self.title, TITLE_SIZE, true);
+        let title = match self.state {
+            PullRequestState::Open => title.bold(),
+            PullRequestState::Closed => title.bold().red(),
+            PullRequestState::Merged => title.bold().green(),
+            PullRequestState::Locked => title.bold().magenta(),
         };
         let colored_id = format!("#{}", self.id).dimmed();
-        let title_line = format!("{:<73} {:>6}", colored_title, colored_id);
+        let title_line = format!("{} {:>width$}", title, colored_id, width = ID_SIZE);
         let details_line = format!(
             "{} {} {} {} {} {}",
             "opened by".dimmed(),
@@ -62,5 +68,17 @@ impl Formatter for PullRequest {
 {url_line}
 "
         )
+    }
+    fn show_short(&self) -> String {
+        let title = to_fixed_length(&self.title, SHORT_TITLE_SIZE, true);
+        let title = match self.state {
+            PullRequestState::Open => title.bold(),
+            PullRequestState::Closed => title.bold().red(),
+            PullRequestState::Merged => title.bold().green(),
+            PullRequestState::Locked => title.bold().magenta(),
+        };
+        let branch = to_fixed_length(&self.source, SHORT_BRANCH_SIZE, true).blue();
+        let colored_id = format!("#{}", self.id).dimmed();
+        format!("{} {} {:>6}\n", title, branch, colored_id)
     }
 }

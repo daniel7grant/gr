@@ -1,25 +1,31 @@
 use crate::cmd::{
-    args::{Cli, Commands, PrCommands, StateFilter, UserFilter},
+    args::{Cli, Commands, OutputType, PrCommands, StateFilter, UserFilter},
     config::Configuration,
 };
 use color_eyre::{
     eyre::{eyre, ContextCompat},
     Result,
 };
-use colored::Colorize;
-use gr::vcs::common::{
-    init_vcs, PullRequestStateFilter, PullRequestUserFilter, VersionControlSettings,
+use gr::{
+    formatters::formatter::Formatter,
+    vcs::common::{
+        init_vcs, PullRequestStateFilter, PullRequestUserFilter, VersionControlSettings,
+    },
 };
 use gr::{
     git::{git::LocalRepository, url::parse_url},
-    vcs::common::{ListPullRequestFilters, PullRequestState},
+    vcs::common::ListPullRequestFilters,
 };
 use tracing::instrument;
 
 #[instrument(skip_all, fields(command = ?args.command))]
 pub async fn list(args: Cli, conf: Configuration) -> Result<()> {
     let Cli {
-        command, dir, auth, ..
+        command,
+        dir,
+        auth,
+        output,
+        ..
     } = args;
     if let Commands::Pr(PrCommands::List { author, state }) = command {
         let repo = LocalRepository::init(dir)?;
@@ -64,19 +70,10 @@ pub async fn list(args: Cli, conf: Configuration) -> Result<()> {
             .await?;
 
         for pr in prs {
-            let max_width_title = if pr.title.len() > 73 {
-                format!("{}...", &pr.title[0..70])
-            } else {
-                pr.title.clone()
-            };
-            let colored_title = match pr.state {
-                PullRequestState::Open => max_width_title.bold(),
-                PullRequestState::Closed => max_width_title.bold().red(),
-                PullRequestState::Merged => max_width_title.bold().green(),
-                PullRequestState::Locked => max_width_title.bold().magenta(),
-            };
-            let colored_id = format!("#{}", pr.id).dimmed();
-            println!("{:<73} {:>6}", colored_title, colored_id);
+            match output {
+                OutputType::Json => print!("{}", pr.show_json()),
+                _ => print!("{}", pr.show_short()),
+            }
         }
 
         Ok(())
