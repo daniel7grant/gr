@@ -20,7 +20,8 @@ pub async fn get(args: Cli, conf: Configuration) -> Result<()> {
         branch,
         dir,
         auth,
-        ..
+        output,
+        verbose: _
     } = args;
     if let Commands::Pr(PrCommands::Get { open }) = command {
         let repo = LocalRepository::init(dir)?;
@@ -45,7 +46,7 @@ pub async fn get(args: Cli, conf: Configuration) -> Result<()> {
         let vcs = init_vcs(hostname, repo, settings);
 
         let pr = vcs.get_pr_by_branch(&remote_branch).await?;
-        pr.show(open);
+        pr.print(open, output.into());
         Ok(())
     } else {
         Err(eyre!("Invalid command!"))

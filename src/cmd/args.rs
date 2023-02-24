@@ -1,5 +1,6 @@
 use clap::{ArgAction, Command, CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::{generate, Generator, Shell};
+use gr::formatters::formatter::FormatterType;
 use std::io;
 use std::process;
 
@@ -32,6 +33,15 @@ pub enum OutputType {
     Normal,
     /// Print output and logs as JSON
     Json,
+}
+
+impl Into<FormatterType> for OutputType  {
+    fn into(self) -> FormatterType {
+        match self {
+            OutputType::Normal => FormatterType::Normal,
+            OutputType::Json => FormatterType::Json,
+        }
+    }
 }
 
 #[derive(Debug, Subcommand)]
