@@ -11,7 +11,7 @@ use gr::{
     git::{git::LocalRepository, url::parse_url},
     vcs::common::VersionControlSettings,
 };
-use tracing::{instrument, info};
+use tracing::{info, instrument};
 
 #[instrument(skip_all, fields(command = ?args.command))]
 pub async fn create(args: Cli, mut conf: Configuration) -> Result<()> {
@@ -33,8 +33,8 @@ pub async fn create(args: Cli, mut conf: Configuration) -> Result<()> {
         merge,
     }) = command
     {
-        let repo = LocalRepository::init(dir)?;
-        let (remote_url, remote_branch) = repo.get_remote_branch(branch)?;
+        let repository = LocalRepository::init(dir)?;
+        let (remote_url, remote_branch) = repository.get_remote_branch(branch)?;
         let (hostname, repo) = parse_url(&remote_url)?;
 
         // Find settings or use the auth command
@@ -69,12 +69,17 @@ pub async fn create(args: Cli, mut conf: Configuration) -> Result<()> {
             })
             .await?;
 
+        pr.print(open, output.into());
+
+        // Merge the PR instantly if merge is passed
         if merge {
             info!("Merging pull request {} instantly.", pr.id);
             pr = vcs.merge_pr(pr.id, false).await?;
-        }
 
-        pr.print(open, output.into());
+            let target_branch = pr.target.clone();
+            info!("Checking out to {} after merge.", target_branch);
+            repository.checkout_remote_branch(target_branch)?;
+        }
 
         // Save default branch to config for caching
         if is_default_branch {
