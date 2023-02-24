@@ -77,6 +77,9 @@ pub enum PrCommands {
         /// Open the pull request in the browser
         #[arg(long)]
         open: bool,
+        /// Merge the pull request instantly (good for hotfixes)
+        #[arg(long)]
+        merge: bool,
     },
     /// Get the open pull request for the current branch
     Get {

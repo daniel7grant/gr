@@ -11,7 +11,7 @@ use gr::{
     git::{git::LocalRepository, url::parse_url},
     vcs::common::VersionControlSettings,
 };
-use tracing::instrument;
+use tracing::{instrument, info};
 
 #[instrument(skip_all, fields(command = ?args.command))]
 pub async fn create(args: Cli, mut conf: Configuration) -> Result<()> {
@@ -30,6 +30,7 @@ pub async fn create(args: Cli, mut conf: Configuration) -> Result<()> {
         delete,
         open,
         reviewers,
+        merge,
     }) = command
     {
         let repo = LocalRepository::init(dir)?;
@@ -57,7 +58,7 @@ pub async fn create(args: Cli, mut conf: Configuration) -> Result<()> {
 
         let reviewers = reviewers.unwrap_or_default();
 
-        let pr = vcs
+        let mut pr = vcs
             .create_pr(CreatePullRequest {
                 title: message,
                 description: description.unwrap_or_default(),
@@ -67,6 +68,12 @@ pub async fn create(args: Cli, mut conf: Configuration) -> Result<()> {
                 reviewers,
             })
             .await?;
+
+        if merge {
+            info!("Merging pull request {} instantly.", pr.id);
+            pr = vcs.merge_pr(pr.id, false).await?;
+        }
+
         pr.print(open, output.into());
 
         // Save default branch to config for caching

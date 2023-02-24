@@ -292,12 +292,13 @@ impl VersionControl for GitHub {
             )
             .await?;
 
-        self.call(
-            Method::POST,
-            &self.get_repository_url(&format!("/pulls/{}/requested_reviewers", new_pr.number)),
-            Some(GitHubCreatePullRequestReviewers { reviewers }),
-        )
-        .await?;
+        let new_pr: GitHubPullRequest = self
+            .call(
+                Method::POST,
+                &self.get_repository_url(&format!("/pulls/{}/requested_reviewers", new_pr.number)),
+                Some(GitHubCreatePullRequestReviewers { reviewers }),
+            )
+            .await?;
 
         Ok(new_pr.into())
     }
