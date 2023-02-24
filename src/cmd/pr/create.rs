@@ -20,7 +20,8 @@ pub async fn create(args: Cli, mut conf: Configuration) -> Result<()> {
         branch,
         dir,
         auth,
-        ..
+        output,
+        verbose: _,
     } = args;
     if let Commands::Pr(PrCommands::Create {
         message,
@@ -66,7 +67,7 @@ pub async fn create(args: Cli, mut conf: Configuration) -> Result<()> {
                 reviewers,
             })
             .await?;
-        pr.show(open);
+        pr.print(open, output.into());
 
         // Save default branch to config for caching
         if is_default_branch {

@@ -1,11 +1,11 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use color_eyre::Result;
-use colored::Colorize;
 use open::that as open_in_browser;
 use serde::{Deserialize, Serialize};
 
-use super::{bitbucket::Bitbucket, github::GitHub, gitlab::GitLab};
+use crate::formatters::formatter::{Formatter, FormatterType};
+use crate::vcs::{bitbucket::Bitbucket, github::GitHub, gitlab::GitLab};
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct User {
@@ -38,41 +38,12 @@ pub struct PullRequest {
 }
 
 impl PullRequest {
-    pub fn show(&self, in_browser: bool) {
+    pub fn print(&self, in_browser: bool, formatter_type: FormatterType) {
         // Open in browser if open is true
         if in_browser && open_in_browser(&self.url).is_ok() {
             return;
         }
-        // On open false or failed browser opening, print the PR
-        // println!("{:#?}", self);
-        let max_width_title = if self.title.len() > 73 {
-            format!("{}...", &self.title[0..70])
-        } else {
-            self.title.clone()
-        };
-        let colored_title = match self.state {
-            PullRequestState::Open => max_width_title.bold(),
-            PullRequestState::Closed => max_width_title.bold().red(),
-            PullRequestState::Merged => max_width_title.bold().green(),
-            PullRequestState::Locked => max_width_title.bold().magenta(),
-        };
-        let colored_id = format!("#{}", self.id).dimmed();
-        println!("{:<73} {:>6}", colored_title, colored_id);
-        println!(
-            "{} {} {} {} {} {}",
-            "opened by".dimmed(),
-            self.author.username,
-            "on".dimmed(),
-            self.created_at.format("%Y-%m-%d"),
-            "updated on".dimmed(),
-            self.updated_at.format("%Y-%m-%d")
-        );
-        println!("{} -> {}\n", self.source.blue(), self.target.blue());
-        if self.description.len() > 0 {
-            println!("{}", self.description);
-            println!("---");
-        }
-        println!("{}", self.url.dimmed());
+        print!("{}", self.show(formatter_type));
     }
 }
 

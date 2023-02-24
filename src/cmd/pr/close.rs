@@ -20,7 +20,8 @@ pub async fn close(args: Cli, conf: Configuration) -> Result<()> {
         branch,
         dir,
         auth,
-        ..
+        output,
+        verbose: _,
     } = args;
     if let Commands::Pr(PrCommands::Close {}) = command {
         let repo = LocalRepository::init(dir)?;
@@ -45,7 +46,7 @@ pub async fn close(args: Cli, conf: Configuration) -> Result<()> {
         let vcs = init_vcs(hostname, repo, settings);
         let pr = vcs.get_pr_by_branch(&remote_branch).await?;
         let pr = vcs.close_pr(pr.id).await?;
-        pr.show(false);
+        pr.print(false, output.into());
         Ok(())
     } else {
         Err(eyre!("Invalid command!"))
