@@ -115,12 +115,20 @@ impl LocalRepository {
     }
 
     #[instrument(skip(self))]
-    pub fn pull(self: &LocalRepository) -> Result<()> {
+    pub fn pull(self: &LocalRepository, output: bool) -> Result<()> {
         debug!("Git pulling in {}.", &self.path);
         let mut child = Command::new("git")
             .args(["-C", &self.path, "pull"])
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
+            .stdout(if output {
+                Stdio::inherit()
+            } else {
+                Stdio::null()
+            })
+            .stderr(if output {
+                Stdio::inherit()
+            } else {
+                Stdio::null()
+            })
             .spawn()
             .wrap_err("Git pull failed to start.")?;
 
@@ -144,7 +152,11 @@ impl LocalRepository {
     }
 
     #[instrument(skip(self))]
-    pub fn checkout_remote_branch(self: &LocalRepository, target_branch: String) -> Result<()> {
+    pub fn checkout_remote_branch(
+        self: &LocalRepository,
+        target_branch: String,
+        output: bool,
+    ) -> Result<()> {
         let branch = self
             .repository
             .find_branch(&target_branch, BranchType::Local)
@@ -169,7 +181,7 @@ impl LocalRepository {
             .set_head(refname)
             .wrap_err(eyre!("Cannot checkout to branch {}.", &target_branch))?;
 
-        self.pull()?;
+        self.pull(output)?;
 
         Ok(())
     }

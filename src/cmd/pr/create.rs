@@ -1,11 +1,12 @@
 use crate::cmd::{
-    args::{Cli, Commands, PrCommands},
+    args::{Cli, Commands, OutputType, PrCommands},
     config::{Configuration, RepositoryConfig},
 };
 use color_eyre::{
     eyre::{eyre, ContextCompat},
     Result,
 };
+use colored::Colorize;
 use gr::vcs::common::{init_vcs, CreatePullRequest};
 use gr::{
     git::{git::LocalRepository, url::parse_url},
@@ -77,12 +78,24 @@ pub async fn create(args: Cli, mut conf: Configuration) -> Result<()> {
             pr = vcs.merge_pr(pr.id, false).await?;
 
             let target_branch = pr.target.clone();
-            info!("Checking out to {} after merge.", target_branch);
-            repository.checkout_remote_branch(target_branch)?;
+
+            let message = format!("Checking out to {} and pulling after merge.", target_branch.blue());
+            match output {
+                OutputType::Json => info!("{}", message),
+                _ => println!("{}", message),
+            };
+            repository.checkout_remote_branch(target_branch, output != OutputType::Json)?;
 
             // Delete local branch if delete was passed
             if delete {
-                repository.delete_branch(pr.source)?;
+                let source_branch = pr.source;
+                repository.delete_branch(source_branch.clone())?;
+
+                let message = format!("Deleted branch {}.", source_branch.blue());
+                match output {
+                    OutputType::Json => info!("{}", message),
+                    _ => println!("{}", message),
+                };
             }
         }
 
