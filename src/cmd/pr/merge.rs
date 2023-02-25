@@ -51,7 +51,7 @@ pub async fn merge(args: Cli, conf: Configuration) -> Result<()> {
         pr.print(false, output.into());
 
         // Checkout to the target branch
-        let target_branch = pr.target.clone();
+        let target_branch = pr.target;
         info!("Checking out to {} after merge.", target_branch);
         repository.checkout_remote_branch(target_branch)?;
 
