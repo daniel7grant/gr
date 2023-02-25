@@ -130,6 +130,20 @@ impl LocalRepository {
     }
 
     #[instrument(skip(self))]
+    pub fn delete_branch(self: &LocalRepository, branch_name: String) -> Result<()> {
+        let mut branch = self
+            .repository
+            .find_branch(&branch_name, BranchType::Local)
+            .wrap_err(eyre!("Branch {} not found.", &branch_name))?;
+
+        branch
+            .delete()
+            .wrap_err(eyre!("Cannot delete local branch {}.", &branch_name))?;
+
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
     pub fn checkout_remote_branch(self: &LocalRepository, target_branch: String) -> Result<()> {
         let branch = self
             .repository

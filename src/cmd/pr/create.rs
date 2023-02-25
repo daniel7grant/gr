@@ -79,6 +79,11 @@ pub async fn create(args: Cli, mut conf: Configuration) -> Result<()> {
             let target_branch = pr.target.clone();
             info!("Checking out to {} after merge.", target_branch);
             repository.checkout_remote_branch(target_branch)?;
+
+            // Delete local branch if delete was passed
+            if delete {
+                repository.delete_branch(pr.source)?;
+            }
         }
 
         // Save default branch to config for caching

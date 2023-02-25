@@ -55,6 +55,11 @@ pub async fn merge(args: Cli, conf: Configuration) -> Result<()> {
         info!("Checking out to {} after merge.", target_branch);
         repository.checkout_remote_branch(target_branch)?;
 
+        // Delete local branch if delete was passed
+        if delete {
+            repository.delete_branch(pr.source)?;
+        }
+
         Ok(())
     } else {
         Err(eyre!("Invalid command!"))

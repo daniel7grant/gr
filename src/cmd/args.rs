@@ -102,7 +102,7 @@ pub enum PrCommands {
     Approve {},
     /// Merge the pull request for the current branch
     Merge {
-        /// Delete source branch after merging (Gitlab and Bitbucket only)
+        /// Delete remote and local branch after merging (remote is Gitlab and Bitbucket only)
         #[arg(long)]
         delete: bool,
     },
