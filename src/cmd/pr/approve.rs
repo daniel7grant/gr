@@ -24,8 +24,8 @@ pub async fn approve(args: Cli, conf: Configuration) -> Result<()> {
         verbose: _,
     } = args;
     if let Commands::Pr(PrCommands::Approve {}) = command {
-        let repo = LocalRepository::init(dir)?;
-        let (remote_url, remote_branch) = repo.get_remote_branch(branch)?;
+        let repository = LocalRepository::init(dir)?;
+        let (remote_url, remote_branch) = repository.get_remote_branch(branch)?;
         let (hostname, repo) = parse_url(&remote_url)?;
 
         // Find settings or use the auth command

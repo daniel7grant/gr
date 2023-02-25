@@ -28,12 +28,12 @@ pub async fn list(args: Cli, conf: Configuration) -> Result<()> {
         ..
     } = args;
     if let Commands::Pr(PrCommands::List { author, state }) = command {
-        let repo = LocalRepository::init(dir)?;
+        let repository = LocalRepository::init(dir)?;
         // Find remote from branch upstream, or fallback to origin or any remote
-        let remote_url = repo
+        let remote_url = repository
             .get_remote_branch(None)
             .map(|(url, _)| url)
-            .or_else(|_| repo.get_remote(None))?;
+            .or_else(|_| repository.get_remote(None))?;
         let (hostname, repo) = parse_url(&remote_url)?;
 
         // Find settings or use the auth command

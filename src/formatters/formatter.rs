@@ -53,7 +53,7 @@ impl Formatter for PullRequest {
         );
         let branch_line = format!("{} -> {}", self.source.blue(), self.target.blue());
         let description = if self.description.len() > 0 {
-            format!("{}\n---", self.description)
+            format!("\n{}\n---", self.description)
         } else {
             "".to_string()
         };
@@ -63,7 +63,6 @@ impl Formatter for PullRequest {
             "{title_line}
 {details_line}
 {branch_line}
-
 {description}
 {url_line}
 "
