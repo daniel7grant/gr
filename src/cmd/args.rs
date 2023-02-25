@@ -57,18 +57,37 @@ Merge the current branch PR:
 $ gr pr merge
 ")]
 pub enum PrCommands {
+    #[command(after_help = "Examples:
+
+Create a pull request with a title:
+$ gr pr create -m 'Do things'
+
+Create a pull request with a title and a description:
+$ gr pr create -m 'Do things' -d 'Do things and stuff'
+
+Description can be provided from standard input (for example git-cliff):
+$ git-cliff --tag PR --strip all | gr pr create -m 'Do things'
+
+Create a pull request to merge into a different branch:
+$ gr pr create -m 'Do things' --target staging
+
+Create a pull request and merge it immediately (for fix branches):
+$ gr pr create -m 'Fix things' --merge --delete")]
     /// Create pull request for the current branch
+    /// 
+    /// The only required field is the title (--message / -m), other fields will be filled by sane defaults:
+    /// the description will be the list of commits, the target branch is the default branch.
     Create {
         /// The title of the pull request
         #[arg(short, long)]
         message: String,
-        /// The description of the pull request (default: the list of commits)
+        /// The description of the pull request (default: stdin, or the list of commits)
         #[arg(short, long)]
         description: Option<String>,
         /// Change the target branch (default: the default branch in the repo)
-        #[arg(long)]
+        #[arg(short, long)]
         target: Option<String>,
-        /// Change the target branch (default: the default branch in the repo)
+        /// Add reviewers by their username (can be added multiple times)
         #[arg(short, long = "reviewer")]
         reviewers: Option<Vec<String>>,
         /// Delete source branch after merging (Gitlab and Bitbucket only)
@@ -81,14 +100,38 @@ pub enum PrCommands {
         #[arg(long)]
         merge: bool,
     },
+    #[command(after_help = "Examples:
+
+Get the pull request on the current branch:
+$ gr pr get
+
+Get the pull request on another branch:
+$ gr pr get -b feature/branch")]
     /// Get the open pull request for the current branch
     Get {
         /// Open the pull request in the browser
         #[arg(long)]
         open: bool,
     },
+    #[command(after_help = "Examples:
+
+Open the pull request on the current branch:
+$ gr pr open
+
+Open the pull request on another branch:
+$ gr pr open -b feature/branch")]
     /// Open the pull request in the browser
     Open {},
+    #[command(after_help = "Examples:
+
+List all open pull requests:
+$ gr pr list
+
+List all pull requests:
+$ gr pr list --state=all
+
+List your open pull requests:
+$ gr pr list --user=me")]
     /// List pull requests for the current repo
     List {
         /// Filter by PR author
@@ -98,14 +141,28 @@ pub enum PrCommands {
         #[arg(long, value_enum)]
         state: Option<StateFilter>,
     },
+    #[command(after_help = "Examples:
+
+Approve the pull request on the current branch:
+$ gr pr approve")]
     /// Approve the pull request for the current branch
     Approve {},
+    #[command(after_help = "Examples:
+
+Merge the pull request, and go to the target branch:
+$ gr pr merge")]
     /// Merge the pull request for the current branch
+    /// 
+    /// This operation will change the branches locally to the target branch and pull the merged changes.
     Merge {
         /// Delete remote and local branch after merging (remote is Gitlab and Bitbucket only)
         #[arg(long)]
         delete: bool,
     },
+    #[command(after_help = "Examples:
+
+Decline the pull request:
+$ gr pr decline")]
     /// Close (decline) the pull request for the current branch
     #[command(alias = "decline")]
     Close {},
