@@ -14,7 +14,7 @@ use gr::{
     git::{git::LocalRepository, url::parse_url},
     vcs::common::VersionControlSettings,
 };
-use tracing::{debug, info, instrument};
+use tracing::{debug, info, instrument, trace};
 
 #[instrument(skip_all, fields(command = ?args.command))]
 pub async fn create(args: Cli, mut conf: Configuration) -> Result<()> {
@@ -37,7 +37,7 @@ pub async fn create(args: Cli, mut conf: Configuration) -> Result<()> {
     }) = command
     {
         let repository = LocalRepository::init(dir)?;
-        let (remote_url, remote_branch) = repository.get_remote_branch(branch)?;
+        let (remote_url, remote_branch) = repository.get_remote_branch(branch.clone())?;
         let (hostname, repo) = parse_url(&remote_url)?;
 
         // Find settings or use the auth command
@@ -55,6 +55,8 @@ pub async fn create(args: Cli, mut conf: Configuration) -> Result<()> {
             ))?
         };
 
+        let default_branch = settings.default_branch.clone();
+
         let vcs = init_vcs(hostname.clone(), repo.clone(), settings);
 
         // Read the description from the STDIN or fallback to
@@ -69,6 +71,37 @@ pub async fn create(args: Cli, mut conf: Configuration) -> Result<()> {
                 let str: Result<String, Error> = input.lines().collect();
                 debug!("Received data from stdin: {:?}", str);
                 str.ok()
+            })
+            .or_else(|| {
+                let commits = repository
+                    .get_branch_commits_from_target(
+                        branch,
+                        target
+                            .clone()
+                            .or(default_branch)
+                            // TODO: fallback to query from the VCS
+                            .unwrap_or("master".to_string()),
+                    )
+                    .map(|commits| {
+                        commits
+                            .into_iter()
+                            .map(|s| format!("- {}\n", s))
+                            .collect::<String>()
+                    });
+
+                match commits {
+                    Ok(commits) => {
+                        trace!("Description is {}.", commits);
+                        Some(commits)
+                    }
+                    Err(err) => {
+                        info!(
+                            "Commit generation failed: {}, description will be empty.",
+                            err
+                        );
+                        None
+                    }
+                }
             })
             .unwrap_or_default();
         let is_default_branch = target.is_none();
