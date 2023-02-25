@@ -1,3 +1,5 @@
+use std::io::{stdin, BufRead, Error};
+
 use crate::cmd::{
     args::{Cli, Commands, OutputType, PrCommands},
     config::{Configuration, RepositoryConfig},
@@ -12,7 +14,7 @@ use gr::{
     git::{git::LocalRepository, url::parse_url},
     vcs::common::VersionControlSettings,
 };
-use tracing::{info, instrument};
+use tracing::{debug, info, instrument};
 
 #[instrument(skip_all, fields(command = ?args.command))]
 pub async fn create(args: Cli, mut conf: Configuration) -> Result<()> {
@@ -53,20 +55,32 @@ pub async fn create(args: Cli, mut conf: Configuration) -> Result<()> {
             ))?
         };
 
-        let is_default_branch = target.is_none();
-
         let vcs = init_vcs(hostname.clone(), repo.clone(), settings);
 
-        let reviewers = reviewers.unwrap_or_default();
+        // Read the description from the STDIN or fallback to
+        let description = description
+            .or_else(|| {
+                if atty::is(atty::Stream::Stdin) {
+                    debug!("Stdin is closed, nothing to read from here.");
+                    return None;
+                };
+
+                let input = stdin().lock();
+                let str: Result<String, Error> = input.lines().collect();
+                debug!("Received data from stdin: {:?}", str);
+                str.ok()
+            })
+            .unwrap_or_default();
+        let is_default_branch = target.is_none();
 
         let mut pr = vcs
             .create_pr(CreatePullRequest {
                 title: message,
-                description: description.unwrap_or_default(),
+                description,
                 source: remote_branch,
                 target,
                 close_source_branch: delete,
-                reviewers,
+                reviewers: reviewers.unwrap_or_default(),
             })
             .await?;
 
@@ -79,7 +93,10 @@ pub async fn create(args: Cli, mut conf: Configuration) -> Result<()> {
 
             let target_branch = pr.target.clone();
 
-            let message = format!("Checking out to {} and pulling after merge.", target_branch.blue());
+            let message = format!(
+                "Checking out to {} and pulling after merge.",
+                target_branch.blue()
+            );
             match output {
                 OutputType::Json => info!("{}", message),
                 _ => println!("{}", message),
