@@ -2,8 +2,9 @@ use color_eyre::{
     eyre::{eyre, Context, ContextCompat},
     Result,
 };
-use git2::{BranchType, ObjectType, Repository, RepositoryOpenFlags};
+use git2::{BranchType, ObjectType, Oid, Repository, RepositoryOpenFlags, Sort};
 use std::{
+    collections::HashSet,
     env,
     path::PathBuf,
     process::{Command, Stdio},
@@ -149,6 +150,54 @@ impl LocalRepository {
             .wrap_err(eyre!("Cannot delete local branch {}.", &branch_name))?;
 
         Ok(())
+    }
+
+    #[instrument(skip(self))]
+    pub fn get_branch_commits_from_target(
+        self: &LocalRepository,
+        branch_name: Option<String>,
+        target_name: String,
+    ) -> Result<Vec<String>> {
+        // Find all commit OIDs on target
+        let target = self
+            .repository
+            .find_branch(&target_name, BranchType::Local)
+            .wrap_err(eyre!("Branch {} not found.", &target_name))?;
+        let target_commit = target.get().peel_to_commit()?;
+
+        let mut revwalk_target = self.repository.revwalk()?;
+        revwalk_target.set_sorting(Sort::TOPOLOGICAL)?;
+
+        revwalk_target.push(target_commit.id())?;
+
+        // Collect the OIDs of the commits on target for quick retrieval
+        let target_oids: HashSet<Oid> = revwalk_target.filter_map(|oid| oid.ok()).collect();
+
+        // Find all commits on branch but not on target
+        let mut revwalk_branch = self.repository.revwalk()?;
+        revwalk_branch.set_sorting(Sort::TOPOLOGICAL)?;
+
+        if let Some(branch_name) = branch_name {
+            let branch = self
+                .repository
+                .find_branch(&branch_name, BranchType::Local)
+                .wrap_err(eyre!("Branch {} not found.", &branch_name))?;
+            let branch_commit = branch.get().peel_to_commit()?;
+
+            revwalk_branch.push(branch_commit.id())?;
+        } else {
+            revwalk_branch.push_head()?;
+        }
+
+        // Get messages from the commits on branch not on target
+        let messages: Vec<String> = revwalk_branch
+            .filter_map(|oid| oid.ok())
+            .filter(|oid| !target_oids.contains(oid))
+            .filter_map(|oid| self.repository.find_commit(oid).ok())
+            .filter_map(|commit| commit.summary().map(|s| s.to_string()))
+            .collect();
+
+        Ok(messages)
     }
 
     #[instrument(skip(self))]
