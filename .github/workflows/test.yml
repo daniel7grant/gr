@@ -48,7 +48,7 @@ jobs:
       #     args: --release --target x86_64-apple-darwin
       #     use-cross: true
       - name: Convert binaries into compressed files
-        run: 
+        run: |
           cd target/x86_64-unknown-linux-gnu/release && tar czf gr-x86_64-linux.tar.gz gr && cd -
           cd target/x86_64-unknown-linux-gnu/release && zip gr-x86_64-linux.zip gr && cd -
           cd target/x86_64-pc-windows-gnu/release && zip gr-x86_64-windows.zip gr.exe && cd -
