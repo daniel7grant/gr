@@ -25,5 +25,9 @@ tracing-error = "0.2.0"
 tracing-subscriber = { version = "0.3.16", features = ["env-filter", "json"] }
 urlencoding = "2.1.2"
 
+[[bin]]
+name = "gr"
+path = "src/main.rs"
+
 [profile.release]
 strip = true
