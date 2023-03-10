@@ -6,13 +6,13 @@ use color_eyre::{
     eyre::{eyre, ContextCompat},
     Result,
 };
-use gr::{
+use gr_bin::{
     formatters::formatter::Formatter,
     vcs::common::{
         init_vcs, PullRequestStateFilter, PullRequestUserFilter, VersionControlSettings,
     },
 };
-use gr::{
+use gr_bin::{
     git::{git::LocalRepository, url::parse_url},
     vcs::common::ListPullRequestFilters,
 };

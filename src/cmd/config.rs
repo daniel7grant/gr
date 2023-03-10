@@ -3,7 +3,7 @@ use color_eyre::{
     Result,
 };
 use dirs::config_dir;
-use gr::vcs::common::VersionControlSettings;
+use gr_bin::vcs::common::VersionControlSettings;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs::read_to_string, fs::write};
 use tracing::{info, instrument, trace};

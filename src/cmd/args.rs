@@ -1,6 +1,6 @@
 use clap::{ArgAction, Command, CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::{generate, Generator, Shell};
-use gr::formatters::formatter::FormatterType;
+use gr_bin::formatters::formatter::FormatterType;
 use std::io;
 use std::process;
 
