@@ -1,7 +1,11 @@
 [package]
 name = "gr-bin"
+description = "Interact with remote repositories like you interact with git"
 version = "0.1.0-rc15"
 edition = "2021"
+license = "MIT"
+documentation = "https://github.com/daniel7grant/gr"
+repository = "https://github.com/daniel7grant/gr"
 
 [dependencies]
 async-trait = "0.1.61"
