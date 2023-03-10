@@ -244,7 +244,7 @@ impl GitHub {
 
     #[instrument(skip_all)]
     async fn get_repository_data(&self) -> Result<GitHubRepository> {
-        self.call::<GitHubRepository, i32>(Method::GET, "", None)
+        self.call::<GitHubRepository, i32>(Method::GET, &self.get_repository_url(""), None)
             .await
     }
 }

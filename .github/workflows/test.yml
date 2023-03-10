@@ -1,0 +1,90 @@
+name: Test and release
+
+on: push
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    name: Test if building works correctly
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the tag
+        uses: actions/checkout@v3
+      - name: Add toolchain for Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: Restore cached dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Test if release is correct
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+      # TODO: add testing
+
+  release:
+    name: Release if we are on a tag
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Checkout the tag
+        uses: actions/checkout@v3
+      - name: Add toolchain for Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: Restore cached dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Test if release builds correctly
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --target x86_64-unknown-linux-gnu
+      - name: Build for Windows
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --target x86_64-pc-windows-gnu
+          use-cross: true
+      # TODO: fix cross compile on MacOS
+      # - name: Build for MacOS
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: build
+      #     args: --release --target x86_64-apple-darwin
+      #     use-cross: true
+      - name: Convert binaries into compressed files
+        run: |
+          cd target/x86_64-unknown-linux-gnu/release && tar czf gr-bin_x86_64-unknown-linux-gnu.tar.gz gr && cd -
+          cd target/x86_64-unknown-linux-gnu/release && zip gr-bin_x86_64-unknown-linux-gnu.zip gr && cd -
+          cd target/x86_64-pc-windows-gnu/release && zip gr-bin_x86_64-pc-windows-gnu.zip gr.exe && cd -
+      - uses: katyo/publish-crates@v2
+        with:
+          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          ignore-unpublished-changes: true
+      - name: Release on tags
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            target/x86_64-unknown-linux-gnu/release/gr-bin_x86_64-unknown-linux-gnu.tar.gz
+            target/x86_64-unknown-linux-gnu/release/gr-bin_x86_64-unknown-linux-gnu.zip
+            target/x86_64-pc-windows-gnu/release/gr-bin_x86_64-pc-windows-gnu.zip

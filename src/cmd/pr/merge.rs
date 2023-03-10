@@ -7,8 +7,8 @@ use color_eyre::{
     Result,
 };
 use colored::Colorize;
-use gr::vcs::common::init_vcs;
-use gr::{
+use gr_bin::vcs::common::init_vcs;
+use gr_bin::{
     git::{git::LocalRepository, url::parse_url},
     vcs::common::VersionControlSettings,
 };

@@ -6,7 +6,7 @@ use color_eyre::{
     eyre::{eyre, Context},
     Result,
 };
-use gr::{
+use gr_bin::{
     git::{git::LocalRepository, url::parse_url},
     vcs::common::{init_vcs, VersionControlSettings},
 };

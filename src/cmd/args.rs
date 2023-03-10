@@ -1,6 +1,6 @@
 use clap::{ArgAction, Command, CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::{generate, Generator, Shell};
-use gr::formatters::formatter::FormatterType;
+use gr_bin::formatters::formatter::FormatterType;
 use std::io;
 use std::process;
 
@@ -197,6 +197,7 @@ $ gr login github.com")]
 
 #[derive(Debug, Parser)]
 #[command(name = "gr")]
+#[command(version = "0.1.0")]
 #[command(about = "Interact with remote repositories like you interact with git", long_about = None)]
 #[command(after_help = "Examples:
 
