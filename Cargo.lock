@@ -530,8 +530,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "gr"
-version = "0.1.0"
+name = "gr-bin"
+version = "0.1.0-rc11"
 dependencies = [
  "async-trait",
  "atty",
