@@ -5,30 +5,32 @@ Interact with remote repositories like you interact with git
 ## Features
 
 -   Login with Github, GitLab (cloud or self-hosted) or Bitbucket
--   Create new PRs with only a title
--   Read and list existing PRs
--   Approve, merge and decline PRs
--   All with git integration (pull, branch change)
+-   Create new pull request with only a title
+-   Read, list and open existing pull requests in the browser
+-   Approve, merge and decline pull requests
+-   With git integration (pull, branch change)
 
-All from the terminal!
+And it's all from the terminal!
 
 ## Installation
 
-You can install with [cargo](https://rustup.rs/):
+You can install with [cargo](https://rustup.rs/), [cargo-binstall](https://github.com/cargo-bins/cargo-binstall) or [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm):
 
 ```shell
+# Any one of these is good
 cargo install gr-bin
+cargo binstall gr-bin
+npm install --global gr-bin
 ```
 
-Or faster, with [cargo-binstall](https://github.com/cargo-bins/cargo-binstall):
-
+If all went well, you should have `gr` installed:
 ```shell
-cargo binstall gr-bin
+gr --version
 ```
 
 ## Usage
 
-`gr` is similar to `git`, that it looks at your current directory, and reads the information from git. To start, move to a local git repo, and login to the remote:
+`gr` is similar to `git`, that it looks at your current directory, and reads the information from git. To start, move to a local git repo, and login to the remote (if you only want to try, replace `gr` with `npx gr-bin`):
 
 ```shell
 cd /path/to/repo

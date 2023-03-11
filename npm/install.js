@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { chmodSync, constants, existsSync } = require('fs');
 const os = require('os');
 const unzip = require('unzip-stream');
 
@@ -32,7 +33,12 @@ async function main() {
     const url = `${repository.url}/releases/download/v${version}/${filename}`;
 
     const file = await axios.get(url, { responseType: 'stream' });
-    file.data.pipe(unzip.Extract({ path: '.' }));
+    file.data.pipe(unzip.Extract({ path: '.' })).on('close', () => {
+        // On Linux we have to make this executable
+        if (existsSync('gr')) {
+            chmodSync('gr', 0755);
+        }
+    });
 }
 
 main().catch((err) => {
