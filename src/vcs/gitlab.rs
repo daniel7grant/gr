@@ -3,11 +3,9 @@ use super::common::{
     CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
     PullRequestStateFilter, PullRequestUserFilter, User, VersionControl, VersionControlSettings,
 };
-use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use color_eyre::{eyre::eyre, Result};
-use futures::future;
-use reqwest::{Client, Method};
+use reqwest::{blocking::Client, Method};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::{info, instrument, trace};
@@ -211,15 +209,15 @@ impl GitLab {
     }
 
     #[instrument(skip_all)]
-    async fn call<T: DeserializeOwned, U: Serialize + Debug>(
+    fn call<T: DeserializeOwned, U: Serialize + Debug>(
         &self,
         method: Method,
         url: &str,
         body: Option<U>,
     ) -> Result<T> {
         let url = format!("https://{}/api/v4{}", self.hostname, url);
-        
-		info!("Calling with {method} on {url}.");
+
+        info!("Calling with {method} on {url}.");
 
         let token = &self.settings.auth;
 
@@ -236,9 +234,9 @@ impl GitLab {
             trace!("Sending body: {}.", serde_json::to_string(&body)?);
         }
 
-        let result = request.send().await?;
+        let result = request.send()?;
         let status = result.status();
-        let t = result.text().await?;
+        let t = result.text()?;
 
         info!(
             "Received response with response code {} with body size {}.",
@@ -256,20 +254,17 @@ impl GitLab {
     }
 
     #[instrument(skip_all)]
-    async fn get_repository_data(&self) -> Result<GitLabRepository> {
+    fn get_repository_data(&self) -> Result<GitLabRepository> {
         self.call::<GitLabRepository, i32>(Method::GET, &self.get_repository_url(""), None)
-            .await
     }
 
     #[instrument(skip(self))]
-    async fn get_user_by_name(&self, username: &str) -> Result<User> {
-        let users: Vec<GitLabUser> = self
-            .call(
-                Method::GET,
-                &format!("/users?username={username}"),
-                None as Option<i32>,
-            )
-            .await?;
+    fn get_user_by_name(&self, username: &str) -> Result<User> {
+        let users: Vec<GitLabUser> = self.call(
+            Method::GET,
+            &format!("/users?username={username}"),
+            None as Option<i32>,
+        )?;
 
         match users.into_iter().next() {
             Some(user) => Ok(user.into()),
@@ -278,7 +273,6 @@ impl GitLab {
     }
 }
 
-#[async_trait]
 impl VersionControl for GitLab {
     #[instrument(skip_all)]
     fn init(hostname: String, repo: String, settings: VersionControlSettings) -> Self {
@@ -306,55 +300,47 @@ impl VersionControl for GitLab {
         }
     }
     #[instrument(skip(self))]
-    async fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {
-        let reviewers = future::join_all(
-            pr.reviewers
-                .iter()
-                .map(|reviewer| self.get_user_by_name(reviewer)),
-        )
-        .await
-        .into_iter()
-        .collect::<Result<Vec<User>>>()?;
+    fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {
+        let reviewers = pr
+            .reviewers
+            .iter()
+            .map(|reviewer| self.get_user_by_name(reviewer))
+            .into_iter()
+            .collect::<Result<Vec<User>>>()?;
 
         pr.reviewers = reviewers.into_iter().map(|r| r.id).collect();
 
         pr.target = pr.target.or(self.settings.default_branch.clone());
         if pr.target.is_none() {
-            let GitLabRepository { default_branch, .. } = self.get_repository_data().await?;
+            let GitLabRepository { default_branch, .. } = self.get_repository_data()?;
             info!("Using {default_branch} as target branch.");
             pr.target = Some(default_branch);
         }
-        let new_pr: GitLabPullRequest = self
-            .call(
-                Method::POST,
-                &self.get_repository_url("/merge_requests"),
-                Some(GitLabCreatePullRequest::from(pr)),
-            )
-            .await?;
+        let new_pr: GitLabPullRequest = self.call(
+            Method::POST,
+            &self.get_repository_url("/merge_requests"),
+            Some(GitLabCreatePullRequest::from(pr)),
+        )?;
 
         Ok(new_pr.into())
     }
     #[instrument(skip(self))]
-    async fn get_pr_by_id(&self, id: u32) -> Result<PullRequest> {
-        let pr: GitLabPullRequest = self
-            .call(
-                Method::GET,
-                &self.get_repository_url(&format!("/merge_requests/{id}")),
-                None as Option<i32>,
-            )
-            .await?;
+    fn get_pr_by_id(&self, id: u32) -> Result<PullRequest> {
+        let pr: GitLabPullRequest = self.call(
+            Method::GET,
+            &self.get_repository_url(&format!("/merge_requests/{id}")),
+            None as Option<i32>,
+        )?;
 
         Ok(pr.into())
     }
     #[instrument(skip(self))]
-    async fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest> {
-        let prs: Vec<GitLabPullRequest> = self
-            .call(
-                Method::GET,
-                &self.get_repository_url(&format!("/merge_requests?source_branch={branch}")),
-                None as Option<i32>,
-            )
-            .await?;
+    fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest> {
+        let prs: Vec<GitLabPullRequest> = self.call(
+            Method::GET,
+            &self.get_repository_url(&format!("/merge_requests?source_branch={branch}")),
+            None as Option<i32>,
+        )?;
 
         match prs.into_iter().next() {
             Some(pr) => Ok(pr.into()),
@@ -362,7 +348,7 @@ impl VersionControl for GitLab {
         }
     }
     #[instrument(skip(self))]
-    async fn list_prs(&self, filters: ListPullRequestFilters) -> Result<Vec<PullRequest>> {
+    fn list_prs(&self, filters: ListPullRequestFilters) -> Result<Vec<PullRequest>> {
         let scope_param = match filters.author {
             PullRequestUserFilter::All => "?scope=all",
             PullRequestUserFilter::Me => "?scope=created_by_me",
@@ -374,55 +360,47 @@ impl VersionControl for GitLab {
             PullRequestStateFilter::Locked => "&state=locked",
             PullRequestStateFilter::All => "",
         };
-        let prs: Vec<GitLabPullRequest> = self
-            .call(
-                Method::GET,
-                &self.get_repository_url(&format!("/merge_requests{scope_param}{state_param}")),
-                None as Option<i32>,
-            )
-            .await?;
+        let prs: Vec<GitLabPullRequest> = self.call(
+            Method::GET,
+            &self.get_repository_url(&format!("/merge_requests{scope_param}{state_param}")),
+            None as Option<i32>,
+        )?;
 
         Ok(prs.into_iter().map(|pr| pr.into()).collect())
     }
     #[instrument(skip(self))]
-    async fn approve_pr(&self, id: u32) -> Result<()> {
-        let _: GitLabApproval = self
-            .call(
-                Method::POST,
-                &self.get_repository_url(&format!("/merge_requests/{id}/approve")),
-                None as Option<i32>,
-            )
-            .await?;
+    fn approve_pr(&self, id: u32) -> Result<()> {
+        let _: GitLabApproval = self.call(
+            Method::POST,
+            &self.get_repository_url(&format!("/merge_requests/{id}/approve")),
+            None as Option<i32>,
+        )?;
 
         Ok(())
     }
     #[instrument(skip(self))]
-    async fn close_pr(&self, id: u32) -> Result<PullRequest> {
+    fn close_pr(&self, id: u32) -> Result<PullRequest> {
         let closing = GitLabUpdatePullRequest {
             state_event: Some(GitLabUpdatePullRequestStateEvent::Close),
             ..GitLabUpdatePullRequest::default()
         };
-        let pr: GitLabPullRequest = self
-            .call(
-                Method::PUT,
-                &self.get_repository_url(&format!("/merge_requests/{id}")),
-                Some(closing),
-            )
-            .await?;
+        let pr: GitLabPullRequest = self.call(
+            Method::PUT,
+            &self.get_repository_url(&format!("/merge_requests/{id}")),
+            Some(closing),
+        )?;
 
         Ok(pr.into())
     }
     #[instrument(skip(self))]
-    async fn merge_pr(&self, id: u32, should_remove_source_branch: bool) -> Result<PullRequest> {
-        let pr: GitLabPullRequest = self
-            .call(
-                Method::PUT,
-                &self.get_repository_url(&format!("/merge_requests/{id}/merge")),
-                Some(GitLabMergePullRequest {
-                    should_remove_source_branch,
-                }),
-            )
-            .await?;
+    fn merge_pr(&self, id: u32, should_remove_source_branch: bool) -> Result<PullRequest> {
+        let pr: GitLabPullRequest = self.call(
+            Method::PUT,
+            &self.get_repository_url(&format!("/merge_requests/{id}/merge")),
+            Some(GitLabMergePullRequest {
+                should_remove_source_branch,
+            }),
+        )?;
 
         Ok(pr.into())
     }

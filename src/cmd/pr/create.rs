@@ -17,7 +17,7 @@ use gr_bin::{
 use tracing::{debug, info, instrument, trace};
 
 #[instrument(skip_all, fields(command = ?args.command))]
-pub async fn create(args: Cli, mut conf: Configuration) -> Result<()> {
+pub fn create(args: Cli, mut conf: Configuration) -> Result<()> {
     let Cli {
         command,
         branch,
@@ -115,14 +115,14 @@ pub async fn create(args: Cli, mut conf: Configuration) -> Result<()> {
                 close_source_branch: delete,
                 reviewers: reviewers.unwrap_or_default(),
             })
-            .await?;
+            ?;
 
         pr.print(open, output.into());
 
         // Merge the PR instantly if merge is passed
         if merge {
             info!("Merging pull request {} instantly.", pr.id);
-            pr = vcs.merge_pr(pr.id, false).await?;
+            pr = vcs.merge_pr(pr.id, false)?;
 
             let target_branch = pr.target.clone();
 

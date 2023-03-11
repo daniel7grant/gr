@@ -19,7 +19,7 @@ use gr_bin::{
 use tracing::instrument;
 
 #[instrument(skip_all, fields(command = ?args.command))]
-pub async fn list(args: Cli, conf: Configuration) -> Result<()> {
+pub fn list(args: Cli, conf: Configuration) -> Result<()> {
     let Cli {
         command,
         dir,
@@ -67,7 +67,7 @@ pub async fn list(args: Cli, conf: Configuration) -> Result<()> {
                     Some(UserFilter::All) | None => PullRequestUserFilter::All,
                 },
             })
-            .await?;
+            ?;
 
         for pr in prs {
             match output {

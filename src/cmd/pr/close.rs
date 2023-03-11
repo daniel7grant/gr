@@ -14,7 +14,7 @@ use gr_bin::{
 use tracing::instrument;
 
 #[instrument(skip_all, fields(command = ?args.command))]
-pub async fn close(args: Cli, conf: Configuration) -> Result<()> {
+pub fn close(args: Cli, conf: Configuration) -> Result<()> {
     let Cli {
         command,
         branch,
@@ -44,8 +44,8 @@ pub async fn close(args: Cli, conf: Configuration) -> Result<()> {
         };
 
         let vcs = init_vcs(hostname, repo, settings);
-        let pr = vcs.get_pr_by_branch(&remote_branch).await?;
-        let pr = vcs.close_pr(pr.id).await?;
+        let pr = vcs.get_pr_by_branch(&remote_branch)?;
+        let pr = vcs.close_pr(pr.id)?;
         pr.print(false, output.into());
         Ok(())
     } else {

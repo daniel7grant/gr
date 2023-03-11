@@ -3,10 +3,9 @@ use super::common::{
     CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
     PullRequestStateFilter, User, VersionControl, VersionControlSettings,
 };
-use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use color_eyre::{eyre::eyre, Result};
-use reqwest::{Client, Method};
+use reqwest::{blocking::Client, Method};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::{info, instrument, trace};
@@ -197,7 +196,7 @@ impl GitHub {
         format!("/repos/{}{}", self.repo, url)
     }
     #[instrument(skip_all)]
-    async fn call<T: DeserializeOwned, U: Serialize + Debug>(
+    fn call<T: DeserializeOwned, U: Serialize + Debug>(
         &self,
         method: Method,
         url: &str,
@@ -223,9 +222,9 @@ impl GitHub {
             trace!("Sending body: {}.", serde_json::to_string(&body)?);
         }
 
-        let result = request.send().await?;
+        let result = request.send()?;
         let status = result.status();
-        let t = result.text().await?;
+        let t = result.text()?;
 
         info!(
             "Received response with response code {} with body size {}.",
@@ -243,13 +242,12 @@ impl GitHub {
     }
 
     #[instrument(skip_all)]
-    async fn get_repository_data(&self) -> Result<GitHubRepository> {
+    fn get_repository_data(&self) -> Result<GitHubRepository> {
         self.call::<GitHubRepository, i32>(Method::GET, &self.get_repository_url(""), None)
-            .await
+            
     }
 }
 
-#[async_trait]
 impl VersionControl for GitHub {
     #[instrument(skip_all)]
     fn init(_: String, repo: String, settings: VersionControlSettings) -> Self {
@@ -277,11 +275,11 @@ impl VersionControl for GitHub {
     }
 
     #[instrument(skip(self))]
-    async fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {
+    fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {
         let reviewers = pr.reviewers.clone();
         pr.target = pr.target.or(self.settings.default_branch.clone());
         if pr.target.is_none() {
-            let GitHubRepository { default_branch, .. } = self.get_repository_data().await?;
+            let GitHubRepository { default_branch, .. } = self.get_repository_data()?;
             pr.target = Some(default_branch);
         }
         let new_pr: GitHubPullRequest = self
@@ -290,7 +288,7 @@ impl VersionControl for GitHub {
                 &self.get_repository_url("/pulls"),
                 Some(GitHubCreatePullRequest::from(pr)),
             )
-            .await?;
+            ?;
 
         let _: GitHubPullRequest = self
             .call(
@@ -298,33 +296,33 @@ impl VersionControl for GitHub {
                 &self.get_repository_url(&format!("/pulls/{}/requested_reviewers", new_pr.number)),
                 Some(GitHubCreatePullRequestReviewers { reviewers }),
             )
-            .await?;
+            ?;
 
         Ok(new_pr.into())
     }
 
     #[instrument(skip(self))]
-    async fn get_pr_by_id(&self, id: u32) -> Result<PullRequest> {
+    fn get_pr_by_id(&self, id: u32) -> Result<PullRequest> {
         let pr: GitHubPullRequest = self
             .call(
                 Method::GET,
                 &self.get_repository_url(&format!("/pulls/{id}")),
                 None as Option<i32>,
             )
-            .await?;
+            ?;
 
         Ok(pr.into())
     }
 
     #[instrument(skip(self))]
-    async fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest> {
+    fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest> {
         let prs: Vec<GitHubPullRequest> = self
             .call(
                 Method::GET,
                 &self.get_repository_url(&format!("/pulls?state=all&head={}", branch)),
                 None as Option<i32>,
             )
-            .await?;
+            ?;
 
         match prs.into_iter().next() {
             Some(pr) => Ok(pr.into()),
@@ -333,7 +331,7 @@ impl VersionControl for GitHub {
     }
 
     #[instrument(skip(self))]
-    async fn list_prs(&self, filters: ListPullRequestFilters) -> Result<Vec<PullRequest>> {
+    fn list_prs(&self, filters: ListPullRequestFilters) -> Result<Vec<PullRequest>> {
         let state = match filters.state {
             PullRequestStateFilter::Open => "open",
             PullRequestStateFilter::Closed
@@ -347,13 +345,13 @@ impl VersionControl for GitHub {
                 &self.get_repository_url(&format!("/pulls?state={state}")),
                 None as Option<i32>,
             )
-            .await?;
+            ?;
 
         Ok(prs.into_iter().map(|pr| pr.into()).collect())
     }
 
     #[instrument(skip(self))]
-    async fn approve_pr(&self, id: u32) -> Result<()> {
+    fn approve_pr(&self, id: u32) -> Result<()> {
         self.call(
             Method::POST,
             &self.get_repository_url(&format!("/pulls/{id}/reviews")),
@@ -362,13 +360,13 @@ impl VersionControl for GitHub {
                 body: None,
             }),
         )
-        .await?;
+        ?;
 
         Ok(())
     }
 
     #[instrument(skip(self))]
-    async fn close_pr(&self, id: u32) -> Result<PullRequest> {
+    fn close_pr(&self, id: u32) -> Result<PullRequest> {
         let closing = GitHubUpdatePullRequest {
             state: Some(GitHubPullRequestState::Closed),
             ..GitHubUpdatePullRequest::default()
@@ -379,21 +377,21 @@ impl VersionControl for GitHub {
                 &self.get_repository_url(&format!("/pulls/{id}")),
                 Some(closing),
             )
-            .await?;
+            ?;
 
         Ok(pr.into())
     }
 
     #[instrument(skip(self))]
-    async fn merge_pr(&self, id: u32, _: bool) -> Result<PullRequest> {
+    fn merge_pr(&self, id: u32, _: bool) -> Result<PullRequest> {
         let _: GitHubPullRequestMerged = self
             .call(
                 Method::PUT,
                 &self.get_repository_url(&format!("/pulls/{id}/merge")),
                 None as Option<i32>,
             )
-            .await?;
+            ?;
 
-        self.get_pr_by_id(id).await
+        self.get_pr_by_id(id)
     }
 }

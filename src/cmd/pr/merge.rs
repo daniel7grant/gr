@@ -15,7 +15,7 @@ use gr_bin::{
 use tracing::{info, instrument};
 
 #[instrument(skip_all, fields(command = ?args.command))]
-pub async fn merge(args: Cli, conf: Configuration) -> Result<()> {
+pub fn merge(args: Cli, conf: Configuration) -> Result<()> {
     let Cli {
         command,
         branch,
@@ -46,8 +46,8 @@ pub async fn merge(args: Cli, conf: Configuration) -> Result<()> {
 
         // Merge the PR
         let vcs = init_vcs(hostname, repo, settings);
-        let pr = vcs.get_pr_by_branch(&remote_branch).await?;
-        let pr = vcs.merge_pr(pr.id, delete).await?;
+        let pr = vcs.get_pr_by_branch(&remote_branch)?;
+        let pr = vcs.merge_pr(pr.id, delete)?;
 
         pr.print(false, output.into());
 

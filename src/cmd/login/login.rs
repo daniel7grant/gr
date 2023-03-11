@@ -11,11 +11,11 @@ use gr_bin::{
     vcs::common::{init_vcs, VersionControlSettings},
 };
 use inquire::Text;
-use tokio::time::{sleep, Duration};
+use std::{thread::sleep, time::Duration};
 use tracing::instrument;
 
 #[instrument(skip_all, fields(command = ?args.command))]
-pub async fn login(args: Cli, mut conf: Configuration) -> Result<()> {
+pub fn login(args: Cli, mut conf: Configuration) -> Result<()> {
     let Cli { command, dir, .. } = args;
     if let Commands::Login {
         hostname,
@@ -50,12 +50,12 @@ pub async fn login(args: Cli, mut conf: Configuration) -> Result<()> {
                 println!("The token needs account, workspace and project read, pull request read and write permissions.");
                 println!("You have to enter you username and the token separated with a colon (e.g. user:ATBB...).");
             }
-            sleep(Duration::from_millis(500)).await;
+            sleep(Duration::from_millis(500));
             let can_open = open::that(&url);
             if can_open.is_err() {
                 println!("Open this page: {}", &url);
             }
-            sleep(Duration::from_millis(500)).await;
+            sleep(Duration::from_millis(500));
 
             // Read the token from the user
             let mut token;
