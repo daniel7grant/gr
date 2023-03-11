@@ -10,8 +10,7 @@ use gr_bin::{
     git::{git::LocalRepository, url::parse_url},
     vcs::common::{init_vcs, VersionControlSettings},
 };
-use inquire::Text;
-use std::{thread::sleep, time::Duration};
+use std::{io, thread::sleep, time::Duration};
 use tracing::instrument;
 
 #[instrument(skip_all, fields(command = ?args.command))]
@@ -58,10 +57,12 @@ pub fn login(args: Cli, mut conf: Configuration) -> Result<()> {
             sleep(Duration::from_millis(500));
 
             // Read the token from the user
-            let mut token;
+            let mut token = String::new();
+            let stdin = io::stdin();
             loop {
-                token = Text::new("Paste the token here: ")
-                    .prompt()
+                print!("Paste the token here: ");
+                stdin
+                    .read_line(&mut token)
                     .wrap_err("Reading the token failed.")?;
                 match vcs.validate_token(&token) {
                     Ok(_) => break,
