@@ -3,12 +3,17 @@ use super::common::{
     CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
     PullRequestStateFilter, User, VersionControl, VersionControlSettings,
 };
+use base64::{Engine as _, engine::general_purpose::STANDARD_NO_PAD as base64};
 use chrono::{DateTime, Utc};
-use color_eyre::{eyre::eyre, eyre::ContextCompat, Result};
-use reqwest::{blocking::Client, Method};
+use color_eyre::{
+    eyre::eyre,
+    eyre::{Context, ContextCompat},
+    Result,
+};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::{info, instrument, trace};
+use ureq::Agent;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub enum BitbucketPullRequestState {
@@ -211,7 +216,7 @@ pub struct BitbucketPaginated<T> {
 #[derive(Debug)]
 pub struct Bitbucket {
     settings: VersionControlSettings,
-    client: Client,
+    client: Agent,
     repo: String,
 }
 
@@ -224,7 +229,7 @@ impl Bitbucket {
     #[instrument(skip_all)]
     fn call<T: DeserializeOwned, U: Serialize + Debug>(
         &self,
-        method: Method,
+        method: &str,
         url: &str,
         body: Option<U>,
     ) -> Result<T> {
@@ -240,19 +245,20 @@ impl Bitbucket {
 
         trace!("Authenticating with username '{username}' and token '{password}'.");
 
-        let mut request = self
-            .client
-            .request(method, url)
-            .basic_auth(username, Some(password));
-        if let Some(body) = &body {
-            request = request.json(body);
-
+        let request = self.client.request(method, &url).set(
+            "Authorization",
+            &format!("Basic {}", base64.encode(format!("{username}:{password}"))),
+        );
+        let result = if let Some(body) = &body {
             trace!("Sending body: {}.", serde_json::to_string(&body)?);
+            request.send_json(body)
+        } else {
+            request.call()
         }
+        .wrap_err("Sending data failed.")?;
 
-        let result = request.send()?;
         let status = result.status();
-        let t = result.text()?;
+        let t = result.into_string()?;
 
         info!(
             "Received response with response code {} with body size {}.",
@@ -261,7 +267,7 @@ impl Bitbucket {
         );
         trace!("Response body: {t}.");
 
-        if status.is_client_error() || status.is_server_error() {
+        if status >= 400 {
             Err(eyre!("Request failed (response: {}).", t))
         } else {
             let t: T = serde_json::from_str(&t)?;
@@ -277,7 +283,7 @@ impl Bitbucket {
             info!("Reading page {}.", i);
 
             let mut page: BitbucketPaginated<T> =
-                self.call(Method::GET, &format!("{url}?page={i}"), None as Option<i32>)?;
+                self.call("GET", &format!("{url}?page={i}"), None as Option<i32>)?;
 
             collected_values.append(&mut page.values);
 
@@ -310,7 +316,7 @@ impl Bitbucket {
 impl VersionControl for Bitbucket {
     #[instrument(skip_all)]
     fn init(_: String, repo: String, settings: VersionControlSettings) -> Self {
-        let client = Client::new();
+        let client = Agent::new();
         Bitbucket {
             settings,
             client,
@@ -334,7 +340,7 @@ impl VersionControl for Bitbucket {
         let reviewers = self.get_workspace_users(pr.reviewers.clone())?;
         pr.reviewers = reviewers.into_iter().map(|r| r.uuid).collect();
         let new_pr: BitbucketPullRequest = self.call(
-            Method::POST,
+            "POST",
             &self.get_repository_url("/pullrequests"),
             Some(BitbucketCreatePullRequest::from(pr)),
         )?;
@@ -344,7 +350,7 @@ impl VersionControl for Bitbucket {
     #[instrument(skip(self))]
     fn get_pr_by_id(&self, id: u32) -> Result<PullRequest> {
         let pr: BitbucketPullRequest = self.call(
-            Method::GET,
+            "GET",
             &self.get_repository_url(&format!("/pullrequests/{id}")),
             None as Option<u32>,
         )?;
@@ -377,7 +383,7 @@ impl VersionControl for Bitbucket {
     #[instrument(skip(self))]
     fn approve_pr(&self, id: u32) -> Result<()> {
         let _: BitbucketApproval = self.call(
-            Method::POST,
+            "POST",
             &self.get_repository_url(&format!("/pullrequests/{id}/approve")),
             None as Option<i32>,
         )?;
@@ -387,7 +393,7 @@ impl VersionControl for Bitbucket {
     #[instrument(skip(self))]
     fn close_pr(&self, id: u32) -> Result<PullRequest> {
         let pr: BitbucketPullRequest = self.call(
-            Method::POST,
+            "POST",
             &self.get_repository_url(&format!("/pullrequests/{id}/decline")),
             None as Option<i32>,
         )?;
@@ -397,7 +403,7 @@ impl VersionControl for Bitbucket {
     #[instrument(skip(self))]
     fn merge_pr(&self, id: u32, close_source_branch: bool) -> Result<PullRequest> {
         let pr: BitbucketPullRequest = self.call(
-            Method::POST,
+            "POST",
             &self.get_repository_url(&format!("/pullrequests/{id}/merge")),
             Some(BitbucketMergePullRequest {
                 close_source_branch,

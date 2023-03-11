@@ -4,11 +4,14 @@ use super::common::{
     PullRequestStateFilter, PullRequestUserFilter, User, VersionControl, VersionControlSettings,
 };
 use chrono::{DateTime, Utc};
-use color_eyre::{eyre::eyre, Result};
-use reqwest::{blocking::Client, Method};
+use color_eyre::{
+    eyre::{eyre, Context},
+    Result,
+};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::{info, instrument, trace};
+use ureq::Agent;
 use urlencoding::encode;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -197,7 +200,7 @@ pub struct GitLabMergePullRequest {
 #[derive(Debug)]
 pub struct GitLab {
     settings: VersionControlSettings,
-    client: Client,
+    client: Agent,
     hostname: String,
     repo: String,
 }
@@ -211,7 +214,7 @@ impl GitLab {
     #[instrument(skip_all)]
     fn call<T: DeserializeOwned, U: Serialize + Debug>(
         &self,
-        method: Method,
+        method: &str,
         url: &str,
         body: Option<U>,
     ) -> Result<T> {
@@ -223,20 +226,22 @@ impl GitLab {
 
         trace!("Authenticating with token '{token}'.");
 
-        let mut request = self
+        let request = self
             .client
-            .request(method, url)
-            .header("Authorization", format!("Bearer {}", token))
-            .header("Content-Type", "application/json");
-        if let Some(body) = body {
-            request = request.json(&body);
-
+            .request(method, &url)
+            .set("Authorization", &format!("Bearer {}", token))
+            .set("Content-Type", "application/json");
+        let result = if let Some(body) = body {
             trace!("Sending body: {}.", serde_json::to_string(&body)?);
-        }
 
-        let result = request.send()?;
+            request.send_json(&body)
+        } else {
+            request.call()
+        }
+        .wrap_err("Sending data failed.")?;
+
         let status = result.status();
-        let t = result.text()?;
+        let t = result.into_string()?;
 
         info!(
             "Received response with response code {} with body size {}.",
@@ -245,7 +250,7 @@ impl GitLab {
         );
         trace!("Response body: {t}.");
 
-        if status.is_client_error() || status.is_server_error() {
+        if status >= 400 {
             Err(eyre!("Request failed (response: {}).", t))
         } else {
             let t: T = serde_json::from_str(&t)?;
@@ -255,13 +260,13 @@ impl GitLab {
 
     #[instrument(skip_all)]
     fn get_repository_data(&self) -> Result<GitLabRepository> {
-        self.call::<GitLabRepository, i32>(Method::GET, &self.get_repository_url(""), None)
+        self.call::<GitLabRepository, i32>("GET", &self.get_repository_url(""), None)
     }
 
     #[instrument(skip(self))]
     fn get_user_by_name(&self, username: &str) -> Result<User> {
         let users: Vec<GitLabUser> = self.call(
-            Method::GET,
+            "GET",
             &format!("/users?username={username}"),
             None as Option<i32>,
         )?;
@@ -276,7 +281,7 @@ impl GitLab {
 impl VersionControl for GitLab {
     #[instrument(skip_all)]
     fn init(hostname: String, repo: String, settings: VersionControlSettings) -> Self {
-        let client = Client::new();
+        let client = Agent::new();
         GitLab {
             settings,
             client,
@@ -317,7 +322,7 @@ impl VersionControl for GitLab {
             pr.target = Some(default_branch);
         }
         let new_pr: GitLabPullRequest = self.call(
-            Method::POST,
+            "POST",
             &self.get_repository_url("/merge_requests"),
             Some(GitLabCreatePullRequest::from(pr)),
         )?;
@@ -327,7 +332,7 @@ impl VersionControl for GitLab {
     #[instrument(skip(self))]
     fn get_pr_by_id(&self, id: u32) -> Result<PullRequest> {
         let pr: GitLabPullRequest = self.call(
-            Method::GET,
+            "GET",
             &self.get_repository_url(&format!("/merge_requests/{id}")),
             None as Option<i32>,
         )?;
@@ -337,7 +342,7 @@ impl VersionControl for GitLab {
     #[instrument(skip(self))]
     fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest> {
         let prs: Vec<GitLabPullRequest> = self.call(
-            Method::GET,
+            "GET",
             &self.get_repository_url(&format!("/merge_requests?source_branch={branch}")),
             None as Option<i32>,
         )?;
@@ -361,7 +366,7 @@ impl VersionControl for GitLab {
             PullRequestStateFilter::All => "",
         };
         let prs: Vec<GitLabPullRequest> = self.call(
-            Method::GET,
+            "GET",
             &self.get_repository_url(&format!("/merge_requests{scope_param}{state_param}")),
             None as Option<i32>,
         )?;
@@ -371,7 +376,7 @@ impl VersionControl for GitLab {
     #[instrument(skip(self))]
     fn approve_pr(&self, id: u32) -> Result<()> {
         let _: GitLabApproval = self.call(
-            Method::POST,
+            "POST",
             &self.get_repository_url(&format!("/merge_requests/{id}/approve")),
             None as Option<i32>,
         )?;
@@ -385,7 +390,7 @@ impl VersionControl for GitLab {
             ..GitLabUpdatePullRequest::default()
         };
         let pr: GitLabPullRequest = self.call(
-            Method::PUT,
+            "PUT",
             &self.get_repository_url(&format!("/merge_requests/{id}")),
             Some(closing),
         )?;
@@ -395,7 +400,7 @@ impl VersionControl for GitLab {
     #[instrument(skip(self))]
     fn merge_pr(&self, id: u32, should_remove_source_branch: bool) -> Result<PullRequest> {
         let pr: GitLabPullRequest = self.call(
-            Method::PUT,
+            "PUT",
             &self.get_repository_url(&format!("/merge_requests/{id}/merge")),
             Some(GitLabMergePullRequest {
                 should_remove_source_branch,
