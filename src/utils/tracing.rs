@@ -1,8 +1,9 @@
 use crate::cmd::args::OutputType;
 use color_eyre::Result;
 use std::env;
+use tracing::metadata::LevelFilter;
 use tracing_error::ErrorLayer;
-use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+use tracing_subscriber::{fmt, prelude::*};
 
 pub fn init_tracing(verbosity: u8, output: OutputType) -> Result<()> {
     if env::var("RUST_SPANTRACE").is_err() {
@@ -19,12 +20,12 @@ pub fn init_tracing(verbosity: u8, output: OutputType) -> Result<()> {
     // Set error layer and filter all traces except ours
     let subscriber = tracing_subscriber::registry()
         .with(ErrorLayer::default())
-        .with(EnvFilter::from(match verbosity {
-            1 => "gr=info",
-            2 => "gr=debug",
-            3 => "gr=trace",
-            _ => "gr=error",
-        }));
+        .with(match verbosity {
+            1 => LevelFilter::INFO,
+            2 => LevelFilter::DEBUG,
+            3 => LevelFilter::TRACE,
+            _ => LevelFilter::ERROR,
+        });
 
     // Select output to JSON, or leave it regular
     if output == OutputType::Json {
