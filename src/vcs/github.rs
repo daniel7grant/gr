@@ -4,11 +4,15 @@ use super::common::{
     PullRequestStateFilter, User, VersionControl, VersionControlSettings,
 };
 use chrono::{DateTime, Utc};
-use color_eyre::{eyre::{eyre, Context}, Result};
+use color_eyre::{
+    eyre::{eyre, Context},
+    Result,
+};
+use native_tls::TlsConnector;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::fmt::Debug;
+use std::{fmt::Debug, sync::Arc};
 use tracing::{info, instrument, trace};
-use ureq::Agent;
+use ureq::{Agent, AgentBuilder};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GitHubUser {
@@ -252,7 +256,9 @@ impl GitHub {
 impl VersionControl for GitHub {
     #[instrument(skip_all)]
     fn init(_: String, repo: String, settings: VersionControlSettings) -> Self {
-        let client = Agent::new();
+        let client = AgentBuilder::new()
+            .tls_connector(Arc::new(TlsConnector::new().unwrap()))
+            .build();
         GitHub {
             settings,
             client,

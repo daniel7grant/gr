@@ -8,10 +8,11 @@ use color_eyre::{
     eyre::{eyre, Context},
     Result,
 };
+use native_tls::TlsConnector;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::fmt::Debug;
+use std::{fmt::Debug, sync::Arc};
 use tracing::{info, instrument, trace};
-use ureq::Agent;
+use ureq::{Agent, AgentBuilder};
 use urlencoding::encode;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -281,7 +282,9 @@ impl GitLab {
 impl VersionControl for GitLab {
     #[instrument(skip_all)]
     fn init(hostname: String, repo: String, settings: VersionControlSettings) -> Self {
-        let client = Agent::new();
+        let client = AgentBuilder::new()
+            .tls_connector(Arc::new(TlsConnector::new().unwrap()))
+            .build();
         GitLab {
             settings,
             client,

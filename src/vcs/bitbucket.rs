@@ -3,17 +3,18 @@ use super::common::{
     CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
     PullRequestStateFilter, User, VersionControl, VersionControlSettings,
 };
-use base64::{Engine as _, engine::general_purpose::STANDARD_NO_PAD as base64};
+use base64::{engine::general_purpose::STANDARD_NO_PAD as base64, Engine as _};
 use chrono::{DateTime, Utc};
 use color_eyre::{
     eyre::eyre,
     eyre::{Context, ContextCompat},
     Result,
 };
+use native_tls::TlsConnector;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::fmt::Debug;
+use std::{fmt::Debug, sync::Arc};
 use tracing::{info, instrument, trace};
-use ureq::Agent;
+use ureq::{Agent, AgentBuilder};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub enum BitbucketPullRequestState {
@@ -316,7 +317,9 @@ impl Bitbucket {
 impl VersionControl for Bitbucket {
     #[instrument(skip_all)]
     fn init(_: String, repo: String, settings: VersionControlSettings) -> Self {
-        let client = Agent::new();
+        let client = AgentBuilder::new()
+            .tls_connector(Arc::new(TlsConnector::new().unwrap()))
+            .build();
         Bitbucket {
             settings,
             client,
