@@ -3,7 +3,6 @@ use super::common::{
     CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
     PullRequestStateFilter, User, VersionControl, VersionControlSettings,
 };
-use chrono::{DateTime, Utc};
 use color_eyre::{
     eyre::{eyre, Context},
     Result,
@@ -11,6 +10,7 @@ use color_eyre::{
 use native_tls::TlsConnector;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{fmt::Debug, sync::Arc};
+use time::OffsetDateTime;
 use tracing::{info, instrument, trace};
 use ureq::{Agent, AgentBuilder};
 
@@ -38,8 +38,10 @@ struct GitHubRepository {
     owner: GitHubUser,
     html_url: String,
     description: Option<String>,
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
+    #[serde(with = "time::serde::iso8601")]
+    created_at: OffsetDateTime,
+    #[serde(with = "time::serde::iso8601")]
+    updated_at: OffsetDateTime,
     stargazers_count: u32,
     archived: bool,
     disabled: bool,
@@ -71,9 +73,12 @@ pub struct GitHubPullRequest {
     pub head: GitHubPullRequestBranch,
     pub base: GitHubPullRequestBranch,
     pub html_url: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    pub merged_at: Option<DateTime<Utc>>,
+    #[serde(with = "time::serde::iso8601")]
+    pub created_at: OffsetDateTime,
+    #[serde(with = "time::serde::iso8601")]
+    pub updated_at: OffsetDateTime,
+    #[serde(with = "time::serde::iso8601::option")]
+    pub merged_at: Option<OffsetDateTime>,
     pub user: GitHubUser,
     pub merged_by: Option<GitHubUser>,
     pub requested_reviewers: Option<Vec<GitHubUser>>,

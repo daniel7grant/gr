@@ -1,7 +1,7 @@
-use chrono::{DateTime, Utc};
 use color_eyre::Result;
 use open::that as open_in_browser;
 use serde::{Deserialize, Serialize};
+use time::OffsetDateTime;
 
 use crate::formatters::formatter::{Formatter, FormatterType};
 use crate::vcs::{bitbucket::Bitbucket, github::GitHub, gitlab::GitLab};
@@ -29,8 +29,10 @@ pub struct PullRequest {
     pub source: String,
     pub target: String,
     pub url: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    #[serde(with = "time::serde::iso8601")]
+    pub created_at: OffsetDateTime,
+    #[serde(with = "time::serde::iso8601")]
+    pub updated_at: OffsetDateTime,
     pub author: User,
     pub closed_by: Option<User>,
     pub reviewers: Option<Vec<User>>,

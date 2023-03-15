@@ -3,7 +3,6 @@ use super::common::{
     CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
     PullRequestStateFilter, PullRequestUserFilter, User, VersionControl, VersionControlSettings,
 };
-use chrono::{DateTime, Utc};
 use color_eyre::{
     eyre::{eyre, Context},
     Result,
@@ -11,6 +10,7 @@ use color_eyre::{
 use native_tls::TlsConnector;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{fmt::Debug, sync::Arc};
+use time::OffsetDateTime;
 use tracing::{info, instrument, trace};
 use ureq::{Agent, AgentBuilder};
 use urlencoding::encode;
@@ -51,7 +51,8 @@ struct GitLabRepository {
     path: String,
     path_with_namespace: String,
     description: String,
-    created_at: DateTime<Utc>,
+    #[serde(with = "time::serde::iso8601")]
+    created_at: OffsetDateTime,
     default_branch: String,
     web_url: String,
     forks_count: u32,
@@ -95,8 +96,10 @@ pub struct GitLabPullRequest {
     pub source_branch: String,
     pub target_branch: String,
     pub web_url: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    #[serde(with = "time::serde::iso8601")]
+    pub created_at: OffsetDateTime,
+    #[serde(with = "time::serde::iso8601")]
+    pub updated_at: OffsetDateTime,
     pub author: GitLabUser,
     pub closed_by: Option<GitLabUser>,
     pub reviewers: Option<Vec<GitLabUser>>,

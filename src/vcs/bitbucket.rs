@@ -4,7 +4,6 @@ use super::common::{
     PullRequestStateFilter, User, VersionControl, VersionControlSettings,
 };
 use base64::{engine::general_purpose::STANDARD_NO_PAD as base64, Engine as _};
-use chrono::{DateTime, Utc};
 use color_eyre::{
     eyre::eyre,
     eyre::{Context, ContextCompat},
@@ -13,6 +12,7 @@ use color_eyre::{
 use native_tls::TlsConnector;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{fmt::Debug, sync::Arc};
+use time::OffsetDateTime;
 use tracing::{info, instrument, trace};
 use ureq::{Agent, AgentBuilder};
 
@@ -112,8 +112,10 @@ pub struct BitbucketPullRequest {
     pub title: String,
     pub description: String,
     pub links: BitbucketPullRequestLinks,
-    pub created_on: DateTime<Utc>,
-    pub updated_on: DateTime<Utc>,
+    #[serde(with = "time::serde::iso8601")]
+    pub created_on: OffsetDateTime,
+    #[serde(with = "time::serde::iso8601")]
+    pub updated_on: OffsetDateTime,
     pub source: BitbucketPullRequestRevision,
     pub destination: BitbucketPullRequestRevision,
     pub author: BitbucketUser,
