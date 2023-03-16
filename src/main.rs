@@ -2,13 +2,12 @@ mod cmd;
 mod utils;
 
 use cmd::{
-    args::{Cli, Commands, OutputType, PrCommands},
+    args::{Cli, Commands, PrCommands},
     config::Configuration,
     login::login::login,
     pr::{approve::approve, close::close, create::create, get::get, list::list, merge::merge},
 };
-use color_eyre::eyre::eyre;
-use color_eyre::Result;
+use eyre::{eyre, Result};
 use std::process;
 use tracing::error;
 use utils::tracing::init_tracing;
@@ -44,12 +43,15 @@ fn main() -> Result<()> {
         Ok(_) => Ok(()),
         Err(err) => match output {
             _ => {
-                if verbose == 0 || output == OutputType::Json {
-                    error!("{}", err.to_string());
-                    process::exit(1)
-                } else {
-                    Err(err)
+                match verbose {
+                    0 => error!("{}", err),
+                    _ => {
+                        for err in err.chain() {
+                            error!("{}", err);
+                        }
+                    }
                 }
+                process::exit(1)
             }
         },
     }

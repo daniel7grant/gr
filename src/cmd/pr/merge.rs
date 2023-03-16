@@ -2,8 +2,8 @@ use crate::cmd::{
     args::{Cli, Commands, OutputType, PrCommands},
     config::Configuration,
 };
-use color_eyre::{
-    eyre::{eyre, ContextCompat},
+use eyre::{
+    eyre, ContextCompat,
     Result,
 };
 use colored::Colorize;

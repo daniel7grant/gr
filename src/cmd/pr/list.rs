@@ -2,8 +2,8 @@ use crate::cmd::{
     args::{Cli, Commands, OutputType, PrCommands, StateFilter, UserFilter},
     config::Configuration,
 };
-use color_eyre::{
-    eyre::{eyre, ContextCompat},
+use eyre::{
+    eyre, ContextCompat,
     Result,
 };
 use gr_bin::{

@@ -4,11 +4,7 @@ use super::common::{
     PullRequestStateFilter, User, VersionControl, VersionControlSettings,
 };
 use base64::{engine::general_purpose::STANDARD_NO_PAD as base64, Engine as _};
-use color_eyre::{
-    eyre::eyre,
-    eyre::{Context, ContextCompat},
-    Result,
-};
+use eyre::{eyre, Context, ContextCompat, Result};
 use native_tls::TlsConnector;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{fmt::Debug, sync::Arc};

@@ -3,8 +3,8 @@ use super::common::{
     CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
     PullRequestStateFilter, PullRequestUserFilter, User, VersionControl, VersionControlSettings,
 };
-use color_eyre::{
-    eyre::{eyre, Context},
+use eyre::{
+    eyre, Context,
     Result,
 };
 use native_tls::TlsConnector;

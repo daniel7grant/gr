@@ -1,7 +1,4 @@
-use color_eyre::{
-    eyre::{eyre, Context, ContextCompat},
-    Result,
-};
+use eyre::{eyre, Context, ContextCompat, Result};
 use git2::{BranchType, ObjectType, Oid, Repository, RepositoryOpenFlags, Sort};
 use std::{
     collections::HashSet,

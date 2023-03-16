@@ -1,4 +1,4 @@
-use color_eyre::Result;
+use eyre::Result;
 use open::that as open_in_browser;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;

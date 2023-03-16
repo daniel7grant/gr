@@ -1,5 +1,5 @@
 use crate::cmd::args::OutputType;
-use color_eyre::Result;
+use eyre::Result;
 use std::env;
 use tracing::metadata::LevelFilter;
 use tracing_error::ErrorLayer;
@@ -13,9 +13,9 @@ pub fn init_tracing(verbosity: u8, output: OutputType) -> Result<()> {
         env::set_var("RUST_BACKTRACE", if verbosity == 3 { "1" } else { "0" });
     }
 
-    color_eyre::config::HookBuilder::default()
-        .display_env_section(false)
-        .install()?;
+    // color_eyre::config::HookBuilder::default()
+    //     .display_env_section(false)
+    //     .install()?;
 
     // Set error layer and filter all traces except ours
     let subscriber = tracing_subscriber::registry()

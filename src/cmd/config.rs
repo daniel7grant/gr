@@ -1,5 +1,5 @@
-use color_eyre::{
-    eyre::{eyre, Context, ContextCompat},
+use eyre::{
+    eyre, Context, ContextCompat,
     Result,
 };
 use dirs::config_dir;

@@ -12,9 +12,9 @@ atty = "0.2.14"
 base64 = "0.21.0"
 clap = { version = "4.1.1", features = ["derive"] }
 clap_complete = "4.1.0"
-color-eyre = "0.6.2"
 colored = "2.0.0"
 dirs = "4.0.0"
+eyre = "0.6.8"
 git2 = { version = "0.16.0", default-features = false }
 native-tls = "0.2.11"
 open = "3.2.0"

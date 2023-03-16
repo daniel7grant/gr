@@ -2,8 +2,8 @@ use crate::cmd::{
     args::{Cli, Commands},
     config::{Configuration, RepositoryConfig},
 };
-use color_eyre::{
-    eyre::{eyre, Context},
+use eyre::{
+    eyre, Context,
     Result,
 };
 use gr_bin::{

@@ -2,10 +2,7 @@ use crate::cmd::{
     args::{Cli, Commands, PrCommands},
     config::Configuration,
 };
-use color_eyre::{
-    eyre::{eyre, ContextCompat},
-    Result,
-};
+use eyre::{eyre, ContextCompat, Result};
 use gr_bin::vcs::common::init_vcs;
 use gr_bin::{
     git::{git::LocalRepository, url::parse_url},

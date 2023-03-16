@@ -2,8 +2,8 @@ use crate::cmd::{
     args::{Cli, Commands, PrCommands},
     config::Configuration,
 };
-use color_eyre::{
-    eyre::{eyre, ContextCompat},
+use eyre::{
+    eyre, ContextCompat,
     Result,
 };
 use gr_bin::vcs::common::init_vcs;
