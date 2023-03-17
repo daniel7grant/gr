@@ -35,9 +35,10 @@ fn exec(cmd: &str, args: Vec<&str>, inherit: bool) -> Result<Vec<String>> {
             .collect::<Vec<String>>())
     } else {
         Err(eyre!(
-            "{} {:?} {}",
+            "{} {:?} {} {}",
             cmd,
             args,
+            String::from_utf8_lossy(&command.stdout).to_string(),
             String::from_utf8_lossy(&command.stderr).to_string()
         ))
     }
