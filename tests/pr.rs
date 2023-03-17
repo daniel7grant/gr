@@ -11,12 +11,20 @@ fn str_rnd(count: usize) -> String {
         .collect()
 }
 
-fn exec(cmd: &str, args: Vec<&str>) -> Result<Vec<String>> {
+fn exec(cmd: &str, args: Vec<&str>, inherit: bool) -> Result<Vec<String>> {
     let command = Command::new(cmd)
-        .args(args)
+        .args(&args)
         .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stdout(if inherit {
+            Stdio::inherit()
+        } else {
+            Stdio::piped()
+        })
+        .stderr(if inherit {
+            Stdio::inherit()
+        } else {
+            Stdio::piped()
+        })
         .output()?;
 
     if command.status.success() {
@@ -26,7 +34,12 @@ fn exec(cmd: &str, args: Vec<&str>) -> Result<Vec<String>> {
             .map(|s| s.to_string())
             .collect::<Vec<String>>())
     } else {
-        Err(eyre!(String::from_utf8_lossy(&command.stderr).to_string()))
+        Err(eyre!(
+            "{} {:?} {}",
+            cmd,
+            args,
+            String::from_utf8_lossy(&command.stderr).to_string()
+        ))
     }
 }
 
@@ -45,8 +58,7 @@ fn test_pr_result(pr: Vec<String>, key: &str) -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_pr() -> Result<()> {
+fn _test_pr() -> Result<()> {
     let key = str_rnd(12);
 
     let url = env::var("GR_REPOSITORY_URL")?;
@@ -58,30 +70,30 @@ fn test_pr() -> Result<()> {
 
     // Setup authentication and clone the repo
     env::set_current_dir(repositories_dir)?;
-    exec("git", vec!["clone", &url, &key])?;
+    exec("git", vec!["clone", &url, &key], true)?;
     env::set_current_dir(&key)?;
 
     // Checkout on new base branch, so we don't merge anything to any important
     let base_branch = format!("{key}-base");
-    exec("git", vec!["checkout", "-b", &base_branch])?;
-    exec("git", vec!["push", "-u", "origin", &base_branch])?;
+    exec("git", vec!["checkout", "-b", &base_branch], true)?;
+    exec("git", vec!["push", "-u", "origin", &base_branch], true)?;
 
     // Checkout to new child branch and create new commit
     let pr_branch = format!("{key}-pr");
-    exec("git", vec!["checkout", "-b", &pr_branch])?;
+    exec("git", vec!["checkout", "-b", &pr_branch], true)?;
     fs::File::create(&key)?;
-    exec("git", vec!["add", "-A"])?;
+    exec("git", vec!["add", "-A"], true)?;
     let commit_msg = format!("commit: {key}");
-    exec("git", vec!["commit", "-m", &commit_msg])?;
-    exec("git", vec!["push", "-u", "origin", &pr_branch])?;
+    exec("git", vec!["commit", "-m", &commit_msg], true)?;
+    exec("git", vec!["push", "-u", "origin", &pr_branch], true)?;
 
     // Create the PR
     let pr_msg = format!("pr: {key}");
-    let created_pr = exec(gr, vec!["pr", "create", "-m", &pr_msg])?;
+    let created_pr = exec(gr, vec!["pr", "create", "-m", &pr_msg], false)?;
     test_pr_result(created_pr, &key)?;
 
     // Get the PR
-    let got_pr = exec(gr, vec!["pr", "get"])?;
+    let got_pr = exec(gr, vec!["pr", "get"], false)?;
     test_pr_result(got_pr, &key)?;
 
     // List the PRs
@@ -89,18 +101,22 @@ fn test_pr() -> Result<()> {
     // listed_prs.iter().any(|pr| pr.contains(&commit_msg));
 
     // Approve the PR
-    let approved_prs = exec(gr, vec!["pr", "approve"])?;
+    let approved_prs = exec(gr, vec!["pr", "approve"], false)?;
     test_pr_result(approved_prs, &key)?;
 
     // Close the PR
-    let closed_pr = exec(gr, vec!["pr", "close"])?;
+    let closed_pr = exec(gr, vec!["pr", "close"], false)?;
     test_pr_result(closed_pr, &key)?;
 
     // Reopen and merge the PR, test that we change the branch to the base branch
-    exec(gr, vec!["pr", "create", "-m", &pr_msg, "-t", &base_branch])?;
-    let merged_pr = exec(gr, vec!["pr", "merge"])?;
+    exec(
+        gr,
+        vec!["pr", "create", "-m", &pr_msg, "-t", &base_branch],
+        true,
+    )?;
+    let merged_pr = exec(gr, vec!["pr", "merge"], false)?;
     test_pr_result(merged_pr, &key)?;
-    let current_branch = exec("git", vec!["branch", "--show-current"])?;
+    let current_branch = exec("git", vec!["branch", "--show-current"], false)?;
     assert_eq!(current_branch.iter().next().unwrap().trim(), &base_branch);
 
     // Delete created repositories
@@ -111,3 +127,10 @@ fn test_pr() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn test_pr() {
+    match _test_pr() {
+        Ok(()) => (),
+        Err(err) => assert_eq!(err.to_string(), "^^^"),
+    }
+}
