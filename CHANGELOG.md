@@ -1,6 +1,11 @@
 # Changelog
 
-## [Unreleased]
+## [0.1.3] - 2023-03-17
+
+### Fixed
+
+-   Fix binary path on NPM packaged binaries
+-   Remove installation error in JS script with old Node version
 
 ### Improved
 

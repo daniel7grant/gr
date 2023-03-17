@@ -197,7 +197,7 @@ $ gr login github.com")]
 
 #[derive(Debug, Parser)]
 #[command(name = "gr")]
-#[command(version = "0.1.2")]
+#[command(version = "0.1.3")]
 #[command(about = "Interact with remote repositories like you interact with git", long_about = None)]
 #[command(after_help = "Examples:
 
