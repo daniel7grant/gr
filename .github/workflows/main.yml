@@ -34,6 +34,7 @@ jobs:
         run: |
           git config --global user.email "gr-test@d7gr.net"
           git config --global user.name "Gr Test"
+          mkdir -pv ~/.config ~/.ssh
           printf "$GR_CONFIGURATION" > ~/.config/gr.json
           printf "%s\n" "$SSH_KEY" > ~/.ssh/id_rsa
           chmod -R 700 ~/.ssh
