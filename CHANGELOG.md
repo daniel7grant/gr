@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4] - 2023-03-17
+
+### Fixed
+
+-   Fix binary path on NPM packaged binaries again
+-   Improve error handling for install package
+
 ## [0.1.3] - 2023-03-17
 
 ### Fixed
