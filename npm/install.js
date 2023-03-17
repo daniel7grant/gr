@@ -32,7 +32,9 @@ async function main() {
 
     const url = `${repository.url}/releases/download/v${version}/${filename}`;
 
-    const file = await axios.get(url, { responseType: 'stream' });
+    const file = await axios.get(url, { responseType: 'stream' }).catch(() => {
+        throw new Error(`Cannot download binary from ${url}.`);
+    });
     file.data.pipe(unzip.Extract({ path: '.' })).on('close', () => {
         // On Linux we have to make this executable
         if (existsSync('gr')) {
