@@ -45,7 +45,8 @@ fn test_pr_result(pr: Vec<String>, key: &str) -> Result<()> {
     Ok(())
 }
 
-fn _test_pr() -> Result<()> {
+#[test]
+fn test_pr() -> Result<()> {
     let key = str_rnd(12);
 
     let url = env::var("GR_REPOSITORY_URL")?;
@@ -110,10 +111,3 @@ fn _test_pr() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_pr() {
-    match _test_pr() {
-        Ok(_) => (),
-        Err(err) => assert_eq!(err.to_string(), "^^^"),
-    }
-}
