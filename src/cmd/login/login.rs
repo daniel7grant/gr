@@ -2,12 +2,9 @@ use crate::cmd::{
     args::{Cli, Commands},
     config::{Configuration, RepositoryConfig},
 };
-use eyre::{
-    eyre, Context,
-    Result,
-};
+use eyre::{eyre, Context, Result};
 use gr_bin::{
-    git::{git::LocalRepository, url::parse_url},
+    git::git::LocalRepository,
     vcs::common::{init_vcs, VersionControlSettings},
 };
 use std::{io, thread::sleep, time::Duration};
@@ -28,8 +25,7 @@ pub fn login(args: Cli, mut conf: Configuration) -> Result<()> {
             (hostname, repo_name.clone().unwrap_or_default())
         } else {
             let repo = LocalRepository::init(dir)?;
-            let (remote_url, _) = repo.get_remote_branch(None)?;
-            let (hostname, repo) = parse_url(&remote_url)?;
+            let (hostname, repo, _) = repo.get_parsed_remote(None)?;
 
             (hostname, repo)
         };

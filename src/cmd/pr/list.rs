@@ -2,20 +2,14 @@ use crate::cmd::{
     args::{Cli, Commands, OutputType, PrCommands, StateFilter, UserFilter},
     config::Configuration,
 };
-use eyre::{
-    eyre, ContextCompat,
-    Result,
-};
+use eyre::{eyre, ContextCompat, Result};
 use gr_bin::{
     formatters::formatter::Formatter,
     vcs::common::{
         init_vcs, PullRequestStateFilter, PullRequestUserFilter, VersionControlSettings,
     },
 };
-use gr_bin::{
-    git::{git::LocalRepository, url::parse_url},
-    vcs::common::ListPullRequestFilters,
-};
+use gr_bin::{git::git::LocalRepository, vcs::common::ListPullRequestFilters};
 use tracing::instrument;
 
 #[instrument(skip_all, fields(command = ?args.command))]
@@ -30,11 +24,7 @@ pub fn list(args: Cli, conf: Configuration) -> Result<()> {
     if let Commands::Pr(PrCommands::List { author, state }) = command {
         let repository = LocalRepository::init(dir)?;
         // Find remote from branch upstream, or fallback to origin or any remote
-        let remote_url = repository
-            .get_remote_branch(None)
-            .map(|(url, _)| url)
-            .or_else(|_| repository.get_remote(None))?;
-        let (hostname, repo) = parse_url(&remote_url)?;
+        let (hostname, repo, _) = repository.get_parsed_remote(None)?;
 
         // Find settings or use the auth command
         let settings = conf.find_settings(&hostname, &repo);
@@ -53,21 +43,19 @@ pub fn list(args: Cli, conf: Configuration) -> Result<()> {
 
         let vcs = init_vcs(hostname, repo, settings);
 
-        let prs = vcs
-            .list_prs(ListPullRequestFilters {
-                state: match state {
-                    Some(StateFilter::Open) | None => PullRequestStateFilter::Open,
-                    Some(StateFilter::Closed) => PullRequestStateFilter::Closed,
-                    Some(StateFilter::Merged) => PullRequestStateFilter::Merged,
-                    Some(StateFilter::Locked) => PullRequestStateFilter::Locked,
-                    Some(StateFilter::All) => PullRequestStateFilter::All,
-                },
-                author: match author {
-                    Some(UserFilter::Me) => PullRequestUserFilter::Me,
-                    Some(UserFilter::All) | None => PullRequestUserFilter::All,
-                },
-            })
-            ?;
+        let prs = vcs.list_prs(ListPullRequestFilters {
+            state: match state {
+                Some(StateFilter::Open) | None => PullRequestStateFilter::Open,
+                Some(StateFilter::Closed) => PullRequestStateFilter::Closed,
+                Some(StateFilter::Merged) => PullRequestStateFilter::Merged,
+                Some(StateFilter::Locked) => PullRequestStateFilter::Locked,
+                Some(StateFilter::All) => PullRequestStateFilter::All,
+            },
+            author: match author {
+                Some(UserFilter::Me) => PullRequestUserFilter::Me,
+                Some(UserFilter::All) | None => PullRequestUserFilter::All,
+            },
+        })?;
 
         for pr in prs {
             match output {
