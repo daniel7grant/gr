@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased]
+
+### Improved
+
+-   Rethink packages to improve compile speed
+    -   Improve build times by ~70%
+    -   Reduce binary size by ~75%
+    -   Move from async to sync to avoid runtime (reqwest to ureq)
+    -   Remove vendored libraries, rely on system libraries (e.g. native ssl)
+    -   Remove git2, and move to git command parsing
+    -   Remove color-eyre, add manual error printing
+
 ## [0.1.2] - 2023-03-11
 
 ### Fixed
