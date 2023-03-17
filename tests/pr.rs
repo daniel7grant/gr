@@ -52,7 +52,7 @@ fn _test_pr() -> Result<()> {
 
     let base_dir = env::current_dir()?;
     let repositories_dir = base_dir.join("tests").join("repositories");
-    let gr_path = base_dir.join("target/release/gr");
+    let gr_path = base_dir.join("target/debug/gr");
     let gr = gr_path.to_str().unwrap();
 
     // Setup authentication and clone the repo

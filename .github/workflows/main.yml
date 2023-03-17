@@ -29,10 +29,10 @@ jobs:
       - name: Test if release is correct
         uses: actions-rs/cargo@v1
         with:
-          command: check
+          command: build
       - name: Setup configuration files
         run: |
-          mkdir ~/.config ~/.ssh
+          mkdir -pv ~/.config ~/.ssh
           printf "$GR_CONFIGURATION" > ~/.config/gr.json
           printf "%s\n" "$SSH_KEY" > ~/.ssh/id_rsa
           chmod -R 700 ~/.ssh
