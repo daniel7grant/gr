@@ -9,7 +9,7 @@ repository = "https://github.com/daniel7grant/gr"
 
 [dependencies]
 atty = "0.2.14"
-base64 = "0.21.0"
+base64 = "0.13.1"
 clap = { version = "4.1.1", features = ["derive"] }
 clap_complete = "4.1.0"
 colored = "2.0.0"

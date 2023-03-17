@@ -3,7 +3,6 @@ use super::common::{
     CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
     PullRequestStateFilter, User, VersionControl, VersionControlSettings,
 };
-use base64::{engine::general_purpose::STANDARD_NO_PAD as base64, Engine as _};
 use eyre::{eyre, Context, ContextCompat, Result};
 use native_tls::TlsConnector;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -246,7 +245,7 @@ impl Bitbucket {
 
         let request = self.client.request(method, &url).set(
             "Authorization",
-            &format!("Basic {}", base64.encode(format!("{username}:{password}"))),
+            &format!("Basic {}", base64::encode(format!("{username}:{password}"))),
         );
         let result = if let Some(body) = &body {
             trace!("Sending body: {}.", serde_json::to_string(&body)?);
