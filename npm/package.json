@@ -11,7 +11,7 @@
         "postinstall": "node install.js"
     },
     "bin": {
-        "gr": "./gr"
+        "gr": "./gr.js"
     },
     "keywords": [],
     "author": "",

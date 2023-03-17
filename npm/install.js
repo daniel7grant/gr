@@ -7,7 +7,7 @@ const { repository, version } = require('./package.json');
 
 // Postinstall script: download binary from GitHub releases
 async function main() {
-    if (os.machine() !== 'x86_64') {
+    if (os.arch() !== 'x64') {
         // ARM is currently not supported :(
         process.stderr.write('Your platform is currently not supported.\n');
         process.exit(1);
