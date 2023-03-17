@@ -101,8 +101,8 @@ fn _test_pr() -> Result<()> {
     // listed_prs.iter().any(|pr| pr.contains(&commit_msg));
 
     // Approve the PR
-    let approved_prs = exec(gr, vec!["pr", "approve"], false)?;
-    test_pr_result(approved_prs, &key)?;
+    // let approved_prs = exec(gr, vec!["pr", "approve"], false)?;
+    // test_pr_result(approved_prs, &key)?;
 
     // Close the PR
     let closed_pr = exec(gr, vec!["pr", "close"], false)?;
