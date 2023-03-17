@@ -11,20 +11,12 @@ fn str_rnd(count: usize) -> String {
         .collect()
 }
 
-fn exec(cmd: &str, args: Vec<&str>, inherit: bool) -> Result<Vec<String>> {
+fn exec(cmd: &str, args: Vec<&str>) -> Result<Vec<String>> {
     let command = Command::new(cmd)
         .args(args)
         .stdin(Stdio::null())
-        .stdout(if inherit {
-            Stdio::inherit()
-        } else {
-            Stdio::piped()
-        })
-        .stderr(if inherit {
-            Stdio::inherit()
-        } else {
-            Stdio::piped()
-        })
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .output()?;
 
     if command.status.success() {
@@ -53,12 +45,10 @@ fn test_pr_result(pr: Vec<String>, key: &str) -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_e2e() -> Result<()> {
+fn _test_pr() -> Result<()> {
     let key = str_rnd(12);
 
     let url = env::var("GR_REPOSITORY_URL")?;
-    let _ = env::var("GR_REPOSITORY_AUTH")?;
 
     let base_dir = env::current_dir()?;
     let repositories_dir = base_dir.join("tests").join("repositories");
@@ -67,56 +57,49 @@ fn test_e2e() -> Result<()> {
 
     // Setup authentication and clone the repo
     env::set_current_dir(repositories_dir)?;
-    exec("git", vec!["clone", &url, &key], true)?;
+    exec("git", vec!["clone", &url, &key])?;
     env::set_current_dir(&key)?;
 
     // Checkout on new base branch, so we don't merge anything to any important
     let base_branch = format!("{key}-base");
-    exec("git", vec!["checkout", "-b", &base_branch], true)?;
-    exec("git", vec!["push", "-u", "origin", &base_branch], true)?;
+    exec("git", vec!["checkout", "-b", &base_branch])?;
+    exec("git", vec!["push", "-u", "origin", &base_branch])?;
 
     // Checkout to new child branch and create new commit
     let pr_branch = format!("{key}-pr");
-    exec("git", vec!["checkout", "-b", &pr_branch], true)?;
+    exec("git", vec!["checkout", "-b", &pr_branch])?;
     fs::File::create(&key)?;
-    exec("git", vec!["add", "-A"], true)?;
+    exec("git", vec!["add", "-A"])?;
     let commit_msg = format!("commit: {key}");
-    exec("git", vec!["commit", "-m", &commit_msg], true)?;
-    exec("git", vec!["push", "-u", "origin", &pr_branch], true)?;
+    exec("git", vec!["commit", "-m", &commit_msg])?;
+    exec("git", vec!["push", "-u", "origin", &pr_branch])?;
 
     // Create the PR
-    println!("Testing PR creation.");
     let pr_msg = format!("pr: {key}");
-    let created_pr = exec(gr, vec!["pr", "create", "-m", &pr_msg], false)?;
+    let created_pr = exec(gr, vec!["pr", "create", "-m", &pr_msg])?;
     test_pr_result(created_pr, &key)?;
 
     // Get the PR
-    println!("Testing PR querying.");
-    let got_pr = exec(gr, vec!["pr", "get"], false)?;
+    let got_pr = exec(gr, vec!["pr", "get"])?;
     test_pr_result(got_pr, &key)?;
 
     // List the PRs
-    println!("Testing PR listing.");
-    // let listed_prs = exec(gr, vec!["pr", "list"], false)?;
+    // let listed_prs = exec(gr, vec!["pr", "list"])?;
     // listed_prs.iter().any(|pr| pr.contains(&commit_msg));
 
     // Approve the PR
-    println!("Testing PR approval.");
-    let approved_prs = exec(gr, vec!["pr", "approve"], false)?;
+    let approved_prs = exec(gr, vec!["pr", "approve"])?;
     test_pr_result(approved_prs, &key)?;
 
     // Close the PR
-    println!("Testing PR close.");
-    let closed_pr = exec(gr, vec!["pr", "close"], false)?;
+    let closed_pr = exec(gr, vec!["pr", "close"])?;
     test_pr_result(closed_pr, &key)?;
 
     // Reopen and merge the PR, test that we change the branch to the base branch
-    println!("Testing PR reopen.");
-    exec(gr, vec!["pr", "create", "-m", &pr_msg, "-t", &base_branch], false)?;
-    println!("Testing PR merge.");
-    let merged_pr = exec(gr, vec!["pr", "merge"], false)?;
+    exec(gr, vec!["pr", "create", "-m", &pr_msg, "-t", &base_branch])?;
+    let merged_pr = exec(gr, vec!["pr", "merge"])?;
     test_pr_result(merged_pr, &key)?;
-    let current_branch = exec("git", vec!["branch", "--show-current"], false)?;
+    let current_branch = exec("git", vec!["branch", "--show-current"])?;
     assert_eq!(current_branch.iter().next().unwrap().trim(), &base_branch);
 
     // Delete created repositories
@@ -125,4 +108,12 @@ fn test_e2e() -> Result<()> {
     env::set_current_dir(&base_dir)?;
 
     Ok(())
+}
+
+#[test]
+fn test_pr() {
+    match _test_pr() {
+        Ok(_) => (),
+        Err(err) => assert_eq!(err.to_string(), "^^^"),
+    }
 }
