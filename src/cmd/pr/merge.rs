@@ -2,20 +2,14 @@ use crate::cmd::{
     args::{Cli, Commands, OutputType, PrCommands},
     config::Configuration,
 };
-use color_eyre::{
-    eyre::{eyre, ContextCompat},
-    Result,
-};
 use colored::Colorize;
+use eyre::{eyre, ContextCompat, Result};
 use gr_bin::vcs::common::init_vcs;
-use gr_bin::{
-    git::{git::LocalRepository, url::parse_url},
-    vcs::common::VersionControlSettings,
-};
+use gr_bin::{git::git::LocalRepository, vcs::common::VersionControlSettings};
 use tracing::{info, instrument};
 
 #[instrument(skip_all, fields(command = ?args.command))]
-pub async fn merge(args: Cli, conf: Configuration) -> Result<()> {
+pub fn merge(args: Cli, conf: Configuration) -> Result<()> {
     let Cli {
         command,
         branch,
@@ -26,8 +20,7 @@ pub async fn merge(args: Cli, conf: Configuration) -> Result<()> {
     } = args;
     if let Commands::Pr(PrCommands::Merge { delete }) = command {
         let repository = LocalRepository::init(dir)?;
-        let (remote_url, remote_branch) = repository.get_remote_branch(branch)?;
-        let (hostname, repo) = parse_url(&remote_url)?;
+        let (hostname, repo, branch) = repository.get_parsed_remote(branch)?;
 
         // Find settings or use the auth command
         let settings = conf.find_settings(&hostname, &repo);
@@ -46,14 +39,17 @@ pub async fn merge(args: Cli, conf: Configuration) -> Result<()> {
 
         // Merge the PR
         let vcs = init_vcs(hostname, repo, settings);
-        let pr = vcs.get_pr_by_branch(&remote_branch).await?;
-        let pr = vcs.merge_pr(pr.id, delete).await?;
+        let pr = vcs.get_pr_by_branch(&branch)?;
+        let pr = vcs.merge_pr(pr.id, delete)?;
 
         pr.print(false, output.into());
 
         // Checkout to the target branch
         let target_branch = pr.target;
-        let message = format!("Checking out to {} and pulling after merge.", target_branch.blue());
+        let message = format!(
+            "Checking out to {} and pulling after merge.",
+            target_branch.blue()
+        );
         match output {
             OutputType::Json => info!("{}", message),
             _ => println!("{}", message),

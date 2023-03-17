@@ -2,20 +2,16 @@ use crate::cmd::{
     args::{Cli, Commands},
     config::{Configuration, RepositoryConfig},
 };
-use color_eyre::{
-    eyre::{eyre, Context},
-    Result,
-};
+use eyre::{eyre, Context, Result};
 use gr_bin::{
-    git::{git::LocalRepository, url::parse_url},
+    git::git::LocalRepository,
     vcs::common::{init_vcs, VersionControlSettings},
 };
-use inquire::Text;
-use tokio::time::{sleep, Duration};
+use std::{io, thread::sleep, time::Duration};
 use tracing::instrument;
 
 #[instrument(skip_all, fields(command = ?args.command))]
-pub async fn login(args: Cli, mut conf: Configuration) -> Result<()> {
+pub fn login(args: Cli, mut conf: Configuration) -> Result<()> {
     let Cli { command, dir, .. } = args;
     if let Commands::Login {
         hostname,
@@ -29,8 +25,7 @@ pub async fn login(args: Cli, mut conf: Configuration) -> Result<()> {
             (hostname, repo_name.clone().unwrap_or_default())
         } else {
             let repo = LocalRepository::init(dir)?;
-            let (remote_url, _) = repo.get_remote_branch(None)?;
-            let (hostname, repo) = parse_url(&remote_url)?;
+            let (hostname, repo, _) = repo.get_parsed_remote(None)?;
 
             (hostname, repo)
         };
@@ -50,18 +45,20 @@ pub async fn login(args: Cli, mut conf: Configuration) -> Result<()> {
                 println!("The token needs account, workspace and project read, pull request read and write permissions.");
                 println!("You have to enter you username and the token separated with a colon (e.g. user:ATBB...).");
             }
-            sleep(Duration::from_millis(500)).await;
+            sleep(Duration::from_millis(500));
             let can_open = open::that(&url);
             if can_open.is_err() {
                 println!("Open this page: {}", &url);
             }
-            sleep(Duration::from_millis(500)).await;
+            sleep(Duration::from_millis(500));
 
             // Read the token from the user
-            let mut token;
+            let mut token = String::new();
+            let stdin = io::stdin();
             loop {
-                token = Text::new("Paste the token here: ")
-                    .prompt()
+                print!("Paste the token here: ");
+                stdin
+                    .read_line(&mut token)
                     .wrap_err("Reading the token failed.")?;
                 match vcs.validate_token(&token) {
                     Ok(_) => break,

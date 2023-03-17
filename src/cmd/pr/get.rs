@@ -2,31 +2,24 @@ use crate::cmd::{
     args::{Cli, Commands, PrCommands},
     config::Configuration,
 };
-use color_eyre::{
-    eyre::{eyre, ContextCompat},
-    Result,
-};
+use eyre::{eyre, ContextCompat, Result};
 use gr_bin::vcs::common::init_vcs;
-use gr_bin::{
-    git::{git::LocalRepository, url::parse_url},
-    vcs::common::VersionControlSettings,
-};
+use gr_bin::{git::git::LocalRepository, vcs::common::VersionControlSettings};
 use tracing::instrument;
 
 #[instrument(skip_all, fields(command = ?args.command))]
-pub async fn get(args: Cli, conf: Configuration) -> Result<()> {
+pub fn get(args: Cli, conf: Configuration) -> Result<()> {
     let Cli {
         command,
         branch,
         dir,
         auth,
         output,
-        verbose: _
+        verbose: _,
     } = args;
     if let Commands::Pr(PrCommands::Get { open }) = command {
         let repository = LocalRepository::init(dir)?;
-        let (remote_url, remote_branch) = repository.get_remote_branch(branch)?;
-        let (hostname, repo) = parse_url(&remote_url)?;
+        let (hostname, repo, branch) = repository.get_parsed_remote(branch)?;
 
         // Find settings or use the auth command
         let settings = conf.find_settings(&hostname, &repo);
@@ -45,7 +38,7 @@ pub async fn get(args: Cli, conf: Configuration) -> Result<()> {
 
         let vcs = init_vcs(hostname, repo, settings);
 
-        let pr = vcs.get_pr_by_branch(&remote_branch).await?;
+        let pr = vcs.get_pr_by_branch(&branch)?;
         pr.print(open, output.into());
         Ok(())
     } else {

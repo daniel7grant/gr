@@ -1,7 +1,4 @@
-use color_eyre::{
-    eyre::{eyre, ContextCompat},
-    Result,
-};
+use eyre::{eyre, ContextCompat, Result};
 use tracing::{debug, instrument};
 
 #[instrument(skip_all)]

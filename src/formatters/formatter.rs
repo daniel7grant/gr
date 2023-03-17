@@ -1,6 +1,5 @@
 use crate::vcs::common::{PullRequest, PullRequestState};
 use colored::Colorize;
-
 use super::utils::to_fixed_length;
 
 pub enum FormatterType {
@@ -47,9 +46,9 @@ impl Formatter for PullRequest {
             "opened by".dimmed(),
             self.author.username,
             "on".dimmed(),
-            self.created_at.format("%Y-%m-%d"),
+            self.created_at.date(),
             "updated on".dimmed(),
-            self.updated_at.format("%Y-%m-%d")
+            self.updated_at.date(),
         );
         let branch_line = format!("{} -> {}", self.source.blue(), self.target.blue());
         let description = if self.description.len() > 0 {

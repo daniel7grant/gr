@@ -3,13 +3,13 @@ use super::common::{
     CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
     PullRequestStateFilter, User, VersionControl, VersionControlSettings,
 };
-use async_trait::async_trait;
-use chrono::{DateTime, Utc};
-use color_eyre::{eyre::eyre, eyre::ContextCompat, Result};
-use reqwest::{Client, Method};
+use eyre::{eyre, Context, ContextCompat, Result};
+use native_tls::TlsConnector;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::fmt::Debug;
+use std::{fmt::Debug, sync::Arc};
+use time::OffsetDateTime;
 use tracing::{info, instrument, trace};
+use ureq::{Agent, AgentBuilder};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub enum BitbucketPullRequestState {
@@ -107,8 +107,10 @@ pub struct BitbucketPullRequest {
     pub title: String,
     pub description: String,
     pub links: BitbucketPullRequestLinks,
-    pub created_on: DateTime<Utc>,
-    pub updated_on: DateTime<Utc>,
+    #[serde(with = "time::serde::iso8601")]
+    pub created_on: OffsetDateTime,
+    #[serde(with = "time::serde::iso8601")]
+    pub updated_on: OffsetDateTime,
     pub source: BitbucketPullRequestRevision,
     pub destination: BitbucketPullRequestRevision,
     pub author: BitbucketUser,
@@ -212,7 +214,7 @@ pub struct BitbucketPaginated<T> {
 #[derive(Debug)]
 pub struct Bitbucket {
     settings: VersionControlSettings,
-    client: Client,
+    client: Agent,
     repo: String,
 }
 
@@ -223,9 +225,9 @@ impl Bitbucket {
     }
 
     #[instrument(skip_all)]
-    async fn call<T: DeserializeOwned, U: Serialize + Debug>(
+    fn call<T: DeserializeOwned, U: Serialize + Debug>(
         &self,
-        method: Method,
+        method: &str,
         url: &str,
         body: Option<U>,
     ) -> Result<T> {
@@ -241,19 +243,20 @@ impl Bitbucket {
 
         trace!("Authenticating with username '{username}' and token '{password}'.");
 
-        let mut request = self
-            .client
-            .request(method, url)
-            .basic_auth(username, Some(password));
-        if let Some(body) = &body {
-            request = request.json(body);
-
+        let request = self.client.request(method, &url).set(
+            "Authorization",
+            &format!("Basic {}", base64::encode(format!("{username}:{password}"))),
+        );
+        let result = if let Some(body) = &body {
             trace!("Sending body: {}.", serde_json::to_string(&body)?);
+            request.send_json(body)
+        } else {
+            request.call()
         }
+        .wrap_err("Sending data failed.")?;
 
-        let result = request.send().await?;
         let status = result.status();
-        let t = result.text().await?;
+        let t = result.into_string()?;
 
         info!(
             "Received response with response code {} with body size {}.",
@@ -262,7 +265,7 @@ impl Bitbucket {
         );
         trace!("Response body: {t}.");
 
-        if status.is_client_error() || status.is_server_error() {
+        if status >= 400 {
             Err(eyre!("Request failed (response: {}).", t))
         } else {
             let t: T = serde_json::from_str(&t)?;
@@ -271,15 +274,14 @@ impl Bitbucket {
     }
 
     #[instrument(skip(self))]
-    async fn call_paginated<T: DeserializeOwned>(&self, url: &str) -> Result<Vec<T>> {
+    fn call_paginated<T: DeserializeOwned>(&self, url: &str) -> Result<Vec<T>> {
         let mut collected_values: Vec<T> = vec![];
         let mut i = 1;
         loop {
             info!("Reading page {}.", i);
 
-            let mut page: BitbucketPaginated<T> = self
-                .call(Method::GET, &format!("{url}?page={i}"), None as Option<i32>)
-                .await?;
+            let mut page: BitbucketPaginated<T> =
+                self.call("GET", &format!("{url}?page={i}"), None as Option<i32>)?;
 
             collected_values.append(&mut page.values);
 
@@ -293,14 +295,13 @@ impl Bitbucket {
     }
 
     #[instrument(skip(self))]
-    async fn get_workspace_users(&self, usernames: Vec<String>) -> Result<Vec<BitbucketUser>> {
+    fn get_workspace_users(&self, usernames: Vec<String>) -> Result<Vec<BitbucketUser>> {
         let (workspace, _) = self
             .repo
             .split_once("/")
             .wrap_err(eyre!("Repo URL is malformed: {}", &self.repo))?;
-        let members: Vec<BitbucketMembership> = self
-            .call_paginated(&format!("/workspaces/{workspace}/members"))
-            .await?;
+        let members: Vec<BitbucketMembership> =
+            self.call_paginated(&format!("/workspaces/{workspace}/members"))?;
 
         Ok(members
             .into_iter()
@@ -310,11 +311,12 @@ impl Bitbucket {
     }
 }
 
-#[async_trait]
 impl VersionControl for Bitbucket {
     #[instrument(skip_all)]
     fn init(_: String, repo: String, settings: VersionControlSettings) -> Self {
-        let client = Client::new();
+        let client = AgentBuilder::new()
+            .tls_connector(Arc::new(TlsConnector::new().unwrap()))
+            .build();
         Bitbucket {
             settings,
             client,
@@ -334,36 +336,31 @@ impl VersionControl for Bitbucket {
         }
     }
     #[instrument(skip(self))]
-    async fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {
-        let reviewers = self.get_workspace_users(pr.reviewers.clone()).await?;
+    fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {
+        let reviewers = self.get_workspace_users(pr.reviewers.clone())?;
         pr.reviewers = reviewers.into_iter().map(|r| r.uuid).collect();
-        let new_pr: BitbucketPullRequest = self
-            .call(
-                Method::POST,
-                &self.get_repository_url("/pullrequests"),
-                Some(BitbucketCreatePullRequest::from(pr)),
-            )
-            .await?;
+        let new_pr: BitbucketPullRequest = self.call(
+            "POST",
+            &self.get_repository_url("/pullrequests"),
+            Some(BitbucketCreatePullRequest::from(pr)),
+        )?;
 
         Ok(new_pr.into())
     }
     #[instrument(skip(self))]
-    async fn get_pr_by_id(&self, id: u32) -> Result<PullRequest> {
-        let pr: BitbucketPullRequest = self
-            .call(
-                Method::GET,
-                &self.get_repository_url(&format!("/pullrequests/{id}")),
-                None as Option<u32>,
-            )
-            .await?;
+    fn get_pr_by_id(&self, id: u32) -> Result<PullRequest> {
+        let pr: BitbucketPullRequest = self.call(
+            "GET",
+            &self.get_repository_url(&format!("/pullrequests/{id}")),
+            None as Option<u32>,
+        )?;
 
         Ok(pr.into())
     }
     #[instrument(skip(self))]
-    async fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest> {
-        let prs: Vec<BitbucketPullRequest> = self
-            .call_paginated(&self.get_repository_url("/pullrequests"))
-            .await?;
+    fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest> {
+        let prs: Vec<BitbucketPullRequest> =
+            self.call_paginated(&self.get_repository_url("/pullrequests"))?;
 
         prs.into_iter()
             .find(|pr| pr.source.branch.name == branch)
@@ -371,54 +368,47 @@ impl VersionControl for Bitbucket {
             .wrap_err(eyre!("Pull request on branch {branch} not found."))
     }
     #[instrument(skip(self))]
-    async fn list_prs(&self, filters: ListPullRequestFilters) -> Result<Vec<PullRequest>> {
+    fn list_prs(&self, filters: ListPullRequestFilters) -> Result<Vec<PullRequest>> {
         let state_param = match filters.state {
             PullRequestStateFilter::Open => "?state=OPEN",
             PullRequestStateFilter::Closed => "?state=DECLINED",
             PullRequestStateFilter::Merged => "?state=MERGED",
             PullRequestStateFilter::Locked | PullRequestStateFilter::All => "",
         };
-        let prs: Vec<BitbucketPullRequest> = self
-            .call_paginated(&self.get_repository_url(&format!("/pullrequests{state_param}")))
-            .await?;
+        let prs: Vec<BitbucketPullRequest> =
+            self.call_paginated(&self.get_repository_url(&format!("/pullrequests{state_param}")))?;
 
         Ok(prs.into_iter().map(|pr| pr.into()).collect())
     }
     #[instrument(skip(self))]
-    async fn approve_pr(&self, id: u32) -> Result<()> {
-        let _: BitbucketApproval = self
-            .call(
-                Method::POST,
-                &self.get_repository_url(&format!("/pullrequests/{id}/approve")),
-                None as Option<i32>,
-            )
-            .await?;
+    fn approve_pr(&self, id: u32) -> Result<()> {
+        let _: BitbucketApproval = self.call(
+            "POST",
+            &self.get_repository_url(&format!("/pullrequests/{id}/approve")),
+            None as Option<i32>,
+        )?;
 
         Ok(())
     }
     #[instrument(skip(self))]
-    async fn close_pr(&self, id: u32) -> Result<PullRequest> {
-        let pr: BitbucketPullRequest = self
-            .call(
-                Method::POST,
-                &self.get_repository_url(&format!("/pullrequests/{id}/decline")),
-                None as Option<i32>,
-            )
-            .await?;
+    fn close_pr(&self, id: u32) -> Result<PullRequest> {
+        let pr: BitbucketPullRequest = self.call(
+            "POST",
+            &self.get_repository_url(&format!("/pullrequests/{id}/decline")),
+            None as Option<i32>,
+        )?;
 
         Ok(pr.into())
     }
     #[instrument(skip(self))]
-    async fn merge_pr(&self, id: u32, close_source_branch: bool) -> Result<PullRequest> {
-        let pr: BitbucketPullRequest = self
-            .call(
-                Method::POST,
-                &self.get_repository_url(&format!("/pullrequests/{id}/merge")),
-                Some(BitbucketMergePullRequest {
-                    close_source_branch,
-                }),
-            )
-            .await?;
+    fn merge_pr(&self, id: u32, close_source_branch: bool) -> Result<PullRequest> {
+        let pr: BitbucketPullRequest = self.call(
+            "POST",
+            &self.get_repository_url(&format!("/pullrequests/{id}/merge")),
+            Some(BitbucketMergePullRequest {
+                close_source_branch,
+            }),
+        )?;
 
         Ok(pr.into())
     }

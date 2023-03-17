@@ -4,20 +4,14 @@ use crate::cmd::{
     args::{Cli, Commands, OutputType, PrCommands},
     config::{Configuration, RepositoryConfig},
 };
-use color_eyre::{
-    eyre::{eyre, ContextCompat},
-    Result,
-};
 use colored::Colorize;
+use eyre::{eyre, ContextCompat, Result};
 use gr_bin::vcs::common::{init_vcs, CreatePullRequest};
-use gr_bin::{
-    git::{git::LocalRepository, url::parse_url},
-    vcs::common::VersionControlSettings,
-};
+use gr_bin::{git::git::LocalRepository, vcs::common::VersionControlSettings};
 use tracing::{debug, info, instrument, trace};
 
 #[instrument(skip_all, fields(command = ?args.command))]
-pub async fn create(args: Cli, mut conf: Configuration) -> Result<()> {
+pub fn create(args: Cli, mut conf: Configuration) -> Result<()> {
     let Cli {
         command,
         branch,
@@ -37,8 +31,7 @@ pub async fn create(args: Cli, mut conf: Configuration) -> Result<()> {
     }) = command
     {
         let repository = LocalRepository::init(dir)?;
-        let (remote_url, remote_branch) = repository.get_remote_branch(branch.clone())?;
-        let (hostname, repo) = parse_url(&remote_url)?;
+        let (hostname, repo, branch_name) = repository.get_parsed_remote(branch.clone())?;
 
         // Find settings or use the auth command
         let settings = conf.find_settings(&hostname, &repo);
@@ -106,23 +99,21 @@ pub async fn create(args: Cli, mut conf: Configuration) -> Result<()> {
             .unwrap_or_default();
         let is_default_branch = target.is_none();
 
-        let mut pr = vcs
-            .create_pr(CreatePullRequest {
-                title: message,
-                description,
-                source: remote_branch,
-                target,
-                close_source_branch: delete,
-                reviewers: reviewers.unwrap_or_default(),
-            })
-            .await?;
+        let mut pr = vcs.create_pr(CreatePullRequest {
+            title: message,
+            description,
+            source: branch_name,
+            target,
+            close_source_branch: delete,
+            reviewers: reviewers.unwrap_or_default(),
+        })?;
 
         pr.print(open, output.into());
 
         // Merge the PR instantly if merge is passed
         if merge {
             info!("Merging pull request {} instantly.", pr.id);
-            pr = vcs.merge_pr(pr.id, false).await?;
+            pr = vcs.merge_pr(pr.id, false)?;
 
             let target_branch = pr.target.clone();
 

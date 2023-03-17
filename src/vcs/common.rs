@@ -1,8 +1,7 @@
-use async_trait::async_trait;
-use chrono::{DateTime, Utc};
-use color_eyre::Result;
+use eyre::Result;
 use open::that as open_in_browser;
 use serde::{Deserialize, Serialize};
+use time::OffsetDateTime;
 
 use crate::formatters::formatter::{Formatter, FormatterType};
 use crate::vcs::{bitbucket::Bitbucket, github::GitHub, gitlab::GitLab};
@@ -30,8 +29,10 @@ pub struct PullRequest {
     pub source: String,
     pub target: String,
     pub url: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    #[serde(with = "time::serde::iso8601")]
+    pub created_at: OffsetDateTime,
+    #[serde(with = "time::serde::iso8601")]
+    pub updated_at: OffsetDateTime,
     pub author: User,
     pub closed_by: Option<User>,
     pub reviewers: Option<Vec<User>>,
@@ -86,20 +87,19 @@ pub struct VersionControlSettings {
     pub vcs_type: Option<String>,
     pub default_branch: Option<String>,
 }
-#[async_trait]
 pub trait VersionControl {
     fn init(hostname: String, repo: String, settings: VersionControlSettings) -> Self
     where
         Self: Sized;
     fn login_url(&self) -> String;
     fn validate_token(&self, token: &str) -> Result<()>;
-    async fn create_pr(&self, pr: CreatePullRequest) -> Result<PullRequest>;
-    async fn get_pr_by_id(&self, id: u32) -> Result<PullRequest>;
-    async fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest>;
-    async fn list_prs(&self, filters: ListPullRequestFilters) -> Result<Vec<PullRequest>>;
-    async fn approve_pr(&self, id: u32) -> Result<()>;
-    async fn close_pr(&self, id: u32) -> Result<PullRequest>;
-    async fn merge_pr(&self, id: u32, delete_source_branch: bool) -> Result<PullRequest>;
+    fn create_pr(&self, pr: CreatePullRequest) -> Result<PullRequest>;
+    fn get_pr_by_id(&self, id: u32) -> Result<PullRequest>;
+    fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest>;
+    fn list_prs(&self, filters: ListPullRequestFilters) -> Result<Vec<PullRequest>>;
+    fn approve_pr(&self, id: u32) -> Result<()>;
+    fn close_pr(&self, id: u32) -> Result<PullRequest>;
+    fn merge_pr(&self, id: u32, delete_source_branch: bool) -> Result<PullRequest>;
 }
 
 pub fn init_vcs(

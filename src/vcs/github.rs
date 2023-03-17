@@ -3,13 +3,13 @@ use super::common::{
     CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
     PullRequestStateFilter, User, VersionControl, VersionControlSettings,
 };
-use async_trait::async_trait;
-use chrono::{DateTime, Utc};
-use color_eyre::{eyre::eyre, Result};
-use reqwest::{Client, Method};
+use eyre::{eyre, Context, Result};
+use native_tls::TlsConnector;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::fmt::Debug;
+use std::{fmt::Debug, sync::Arc};
+use time::OffsetDateTime;
 use tracing::{info, instrument, trace};
+use ureq::{Agent, AgentBuilder};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GitHubUser {
@@ -35,8 +35,10 @@ struct GitHubRepository {
     owner: GitHubUser,
     html_url: String,
     description: Option<String>,
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
+    #[serde(with = "time::serde::iso8601")]
+    created_at: OffsetDateTime,
+    #[serde(with = "time::serde::iso8601")]
+    updated_at: OffsetDateTime,
     stargazers_count: u32,
     archived: bool,
     disabled: bool,
@@ -68,9 +70,12 @@ pub struct GitHubPullRequest {
     pub head: GitHubPullRequestBranch,
     pub base: GitHubPullRequestBranch,
     pub html_url: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    pub merged_at: Option<DateTime<Utc>>,
+    #[serde(with = "time::serde::iso8601")]
+    pub created_at: OffsetDateTime,
+    #[serde(with = "time::serde::iso8601")]
+    pub updated_at: OffsetDateTime,
+    #[serde(with = "time::serde::iso8601::option")]
+    pub merged_at: Option<OffsetDateTime>,
     pub user: GitHubUser,
     pub merged_by: Option<GitHubUser>,
     pub requested_reviewers: Option<Vec<GitHubUser>>,
@@ -187,7 +192,7 @@ pub struct GitHubPullRequestMerged {
 #[derive(Debug)]
 pub struct GitHub {
     settings: VersionControlSettings,
-    client: Client,
+    client: Agent,
     repo: String,
 }
 
@@ -197,9 +202,9 @@ impl GitHub {
         format!("/repos/{}{}", self.repo, url)
     }
     #[instrument(skip_all)]
-    async fn call<T: DeserializeOwned, U: Serialize + Debug>(
+    fn call<T: DeserializeOwned, U: Serialize + Debug>(
         &self,
-        method: Method,
+        method: &str,
         url: &str,
         body: Option<U>,
     ) -> Result<T> {
@@ -211,21 +216,23 @@ impl GitHub {
 
         trace!("Authenticating with token '{token}'.");
 
-        let mut request = self
+        let request = self
             .client
-            .request(method, url)
-            .header("User-Agent", "gr")
-            .header("Authorization", format!("Bearer {}", token))
-            .header("Content-Type", "application/json");
-        if let Some(body) = body {
-            request = request.json(&body);
-
+            .request(method, &url)
+            .set("User-Agent", "gr")
+            .set("Authorization", &format!("Bearer {}", token))
+            .set("Content-Type", "application/json");
+        let result = if let Some(body) = body {
             trace!("Sending body: {}.", serde_json::to_string(&body)?);
-        }
 
-        let result = request.send().await?;
+            request.send_json(&body)
+        } else {
+            request.call()
+        }
+        .wrap_err("Sending data failed.")?;
+
         let status = result.status();
-        let t = result.text().await?;
+        let t = result.into_string()?;
 
         info!(
             "Received response with response code {} with body size {}.",
@@ -234,7 +241,7 @@ impl GitHub {
         );
         trace!("Response body: {t}.");
 
-        if status.is_client_error() || status.is_server_error() {
+        if status >= 400 {
             Err(eyre!("Request failed (response: {}).", t))
         } else {
             let t: T = serde_json::from_str(&t)?;
@@ -243,17 +250,17 @@ impl GitHub {
     }
 
     #[instrument(skip_all)]
-    async fn get_repository_data(&self) -> Result<GitHubRepository> {
-        self.call::<GitHubRepository, i32>(Method::GET, &self.get_repository_url(""), None)
-            .await
+    fn get_repository_data(&self) -> Result<GitHubRepository> {
+        self.call::<GitHubRepository, i32>("GET", &self.get_repository_url(""), None)
     }
 }
 
-#[async_trait]
 impl VersionControl for GitHub {
     #[instrument(skip_all)]
     fn init(_: String, repo: String, settings: VersionControlSettings) -> Self {
-        let client = Client::new();
+        let client = AgentBuilder::new()
+            .tls_connector(Arc::new(TlsConnector::new().unwrap()))
+            .build();
         GitHub {
             settings,
             client,
@@ -277,54 +284,46 @@ impl VersionControl for GitHub {
     }
 
     #[instrument(skip(self))]
-    async fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {
+    fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {
         let reviewers = pr.reviewers.clone();
         pr.target = pr.target.or(self.settings.default_branch.clone());
         if pr.target.is_none() {
-            let GitHubRepository { default_branch, .. } = self.get_repository_data().await?;
+            let GitHubRepository { default_branch, .. } = self.get_repository_data()?;
             pr.target = Some(default_branch);
         }
-        let new_pr: GitHubPullRequest = self
-            .call(
-                Method::POST,
-                &self.get_repository_url("/pulls"),
-                Some(GitHubCreatePullRequest::from(pr)),
-            )
-            .await?;
+        let new_pr: GitHubPullRequest = self.call(
+            "POST",
+            &self.get_repository_url("/pulls"),
+            Some(GitHubCreatePullRequest::from(pr)),
+        )?;
 
-        let _: GitHubPullRequest = self
-            .call(
-                Method::POST,
-                &self.get_repository_url(&format!("/pulls/{}/requested_reviewers", new_pr.number)),
-                Some(GitHubCreatePullRequestReviewers { reviewers }),
-            )
-            .await?;
+        let _: GitHubPullRequest = self.call(
+            "POST",
+            &self.get_repository_url(&format!("/pulls/{}/requested_reviewers", new_pr.number)),
+            Some(GitHubCreatePullRequestReviewers { reviewers }),
+        )?;
 
         Ok(new_pr.into())
     }
 
     #[instrument(skip(self))]
-    async fn get_pr_by_id(&self, id: u32) -> Result<PullRequest> {
-        let pr: GitHubPullRequest = self
-            .call(
-                Method::GET,
-                &self.get_repository_url(&format!("/pulls/{id}")),
-                None as Option<i32>,
-            )
-            .await?;
+    fn get_pr_by_id(&self, id: u32) -> Result<PullRequest> {
+        let pr: GitHubPullRequest = self.call(
+            "GET",
+            &self.get_repository_url(&format!("/pulls/{id}")),
+            None as Option<i32>,
+        )?;
 
         Ok(pr.into())
     }
 
     #[instrument(skip(self))]
-    async fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest> {
-        let prs: Vec<GitHubPullRequest> = self
-            .call(
-                Method::GET,
-                &self.get_repository_url(&format!("/pulls?state=all&head={}", branch)),
-                None as Option<i32>,
-            )
-            .await?;
+    fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest> {
+        let prs: Vec<GitHubPullRequest> = self.call(
+            "GET",
+            &self.get_repository_url(&format!("/pulls?state=all&head={}", branch)),
+            None as Option<i32>,
+        )?;
 
         match prs.into_iter().next() {
             Some(pr) => Ok(pr.into()),
@@ -333,7 +332,7 @@ impl VersionControl for GitHub {
     }
 
     #[instrument(skip(self))]
-    async fn list_prs(&self, filters: ListPullRequestFilters) -> Result<Vec<PullRequest>> {
+    fn list_prs(&self, filters: ListPullRequestFilters) -> Result<Vec<PullRequest>> {
         let state = match filters.state {
             PullRequestStateFilter::Open => "open",
             PullRequestStateFilter::Closed
@@ -341,59 +340,52 @@ impl VersionControl for GitHub {
             | PullRequestStateFilter::Locked => "closed",
             PullRequestStateFilter::All => "all",
         };
-        let prs: Vec<GitHubPullRequest> = self
-            .call(
-                Method::GET,
-                &self.get_repository_url(&format!("/pulls?state={state}")),
-                None as Option<i32>,
-            )
-            .await?;
+        let prs: Vec<GitHubPullRequest> = self.call(
+            "GET",
+            &self.get_repository_url(&format!("/pulls?state={state}")),
+            None as Option<i32>,
+        )?;
 
         Ok(prs.into_iter().map(|pr| pr.into()).collect())
     }
 
     #[instrument(skip(self))]
-    async fn approve_pr(&self, id: u32) -> Result<()> {
+    fn approve_pr(&self, id: u32) -> Result<()> {
         self.call(
-            Method::POST,
+            "POST",
             &self.get_repository_url(&format!("/pulls/{id}/reviews")),
             Some(GitHubCreatePullRequestReview {
                 event: GitHubCreatePullRequestReviewEvent::Approve,
                 body: None,
             }),
-        )
-        .await?;
+        )?;
 
         Ok(())
     }
 
     #[instrument(skip(self))]
-    async fn close_pr(&self, id: u32) -> Result<PullRequest> {
+    fn close_pr(&self, id: u32) -> Result<PullRequest> {
         let closing = GitHubUpdatePullRequest {
             state: Some(GitHubPullRequestState::Closed),
             ..GitHubUpdatePullRequest::default()
         };
-        let pr: GitHubPullRequest = self
-            .call(
-                Method::PATCH,
-                &self.get_repository_url(&format!("/pulls/{id}")),
-                Some(closing),
-            )
-            .await?;
+        let pr: GitHubPullRequest = self.call(
+            "PATCH",
+            &self.get_repository_url(&format!("/pulls/{id}")),
+            Some(closing),
+        )?;
 
         Ok(pr.into())
     }
 
     #[instrument(skip(self))]
-    async fn merge_pr(&self, id: u32, _: bool) -> Result<PullRequest> {
-        let _: GitHubPullRequestMerged = self
-            .call(
-                Method::PUT,
-                &self.get_repository_url(&format!("/pulls/{id}/merge")),
-                None as Option<i32>,
-            )
-            .await?;
+    fn merge_pr(&self, id: u32, _: bool) -> Result<PullRequest> {
+        let _: GitHubPullRequestMerged = self.call(
+            "PUT",
+            &self.get_repository_url(&format!("/pulls/{id}/merge")),
+            None as Option<i32>,
+        )?;
 
-        self.get_pr_by_id(id).await
+        self.get_pr_by_id(id)
     }
 }
