@@ -47,7 +47,7 @@ struct GitLabRepository {
     name_with_namespace: String,
     path: String,
     path_with_namespace: String,
-    description: String,
+    description: Option<String>,
     #[serde(with = "time::serde::iso8601")]
     created_at: OffsetDateTime,
     default_branch: String,
@@ -57,7 +57,7 @@ struct GitLabRepository {
     last_activity_at: String,
     archived: bool,
     visibility: String,
-    owner: GitLabUser,
+    owner: Option<GitLabUser>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

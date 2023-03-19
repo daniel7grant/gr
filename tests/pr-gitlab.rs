@@ -59,10 +59,11 @@ fn test_pr_result(pr: Vec<String>, key: &str) -> Result<()> {
     Ok(())
 }
 
-fn _test_pr() -> Result<()> {
+fn test_pr() -> Result<()> {
     let key = str_rnd(12);
 
-    let url = env::var("GR_REPOSITORY_URL")?;
+    let url = env::var("GR_GITLAB_REPOSITORY_URL")
+        .unwrap_or("git@gitlab.com:grbin-test/gr-bin-test.git".to_string());
 
     let base_dir = env::current_dir()?;
     let repositories_dir = base_dir.join("tests").join("repositories");
@@ -98,12 +99,12 @@ fn _test_pr() -> Result<()> {
     test_pr_result(got_pr, &key)?;
 
     // List the PRs
-    // let listed_prs = exec(gr, vec!["pr", "list"])?;
-    // listed_prs.iter().any(|pr| pr.contains(&commit_msg));
+    let listed_prs = exec(gr, vec!["pr", "list"], false)?;
+    listed_prs.iter().any(|pr| pr.contains(&commit_msg));
 
     // Approve the PR
-    // let approved_prs = exec(gr, vec!["pr", "approve"], false)?;
-    // test_pr_result(approved_prs, &key)?;
+    let approved_prs = exec(gr, vec!["pr", "approve"], false)?;
+    test_pr_result(approved_prs, &key)?;
 
     // Close the PR
     let closed_pr = exec(gr, vec!["pr", "close"], false)?;
@@ -129,8 +130,8 @@ fn _test_pr() -> Result<()> {
 }
 
 #[test]
-fn test_pr() {
-    match _test_pr() {
+fn test_gitlab_pr() {
+    match test_pr() {
         Ok(()) => (),
         Err(err) => assert_eq!(err.to_string(), "^^^"),
     }

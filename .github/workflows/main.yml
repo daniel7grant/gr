@@ -43,29 +43,12 @@ jobs:
         env:
           GR_CONFIGURATION : ${{ secrets.GR_CONFIGURATION }}
           SSH_KEY : ${{ secrets.SSH_KEY }}
-      - name: Test GitHub integration
+      - name: Run integration tests
         uses: actions-rs/cargo@v1
         with:
           command: test
           args: --test '*' -- --nocapture
         env:
-          GR_REPOSITORY_URL: git@github.com:gr-bin-test/gr-bin-test.git
-          RUST_BACKTRACE: 1
-      - name: Test BitBucket integration
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --test '*' -- --nocapture
-        env:
-          GR_REPOSITORY_URL: git@bitbucket.org:grbin-test/gr-bin-test.git
-          RUST_BACKTRACE: 1
-      - name: Test GitLab integration
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --test '*' -- --nocapture
-        env:
-          GR_REPOSITORY_URL: git@gitlab.com:grbin-test/gr-bin-test.git
           RUST_BACKTRACE: 1
   release:
     name: Release if we are on a tag
