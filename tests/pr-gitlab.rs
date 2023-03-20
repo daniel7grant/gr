@@ -2,6 +2,7 @@ use eyre::{eyre, Result};
 use rand::{distributions::Alphanumeric, Rng};
 use std::process::{Command, Stdio};
 use std::{env, fs};
+use std::{thread::sleep, time::Duration};
 
 fn str_rnd(count: usize) -> String {
     rand::thread_rng()
@@ -118,6 +119,7 @@ fn test_pr() -> Result<()> {
     )?;
     let got_pr = exec(gr, vec!["pr", "get"], false)?;
     test_pr_result(got_pr, &key)?;
+    sleep(Duration::from_millis(500));
     let merged_pr = exec(gr, vec!["pr", "merge"], false)?;
     test_pr_result(merged_pr, &key)?;
     let current_branch = exec("git", vec!["branch", "--show-current"], false)?;
