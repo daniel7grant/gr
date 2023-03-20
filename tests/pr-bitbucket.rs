@@ -89,6 +89,15 @@ fn test_pr() -> Result<()> {
     exec("git", vec!["commit", "-m", &commit_msg], true)?;
     exec("git", vec!["push", "-u", "origin", &pr_branch], true)?;
 
+    // Check that we don't have any PRs yet
+    let no_pr = exec(gr, vec!["pr", "get"], false);
+    assert!(no_pr.is_err());
+    if let Err(err) = no_pr {
+        assert!(err.to_string().contains(&format!(
+            "Pull request on branch {pr_branch} not found."
+        )));
+    }
+
     // Create the PR
     let pr_msg = format!("pr: {key}");
     let created_pr = exec(gr, vec!["pr", "create", "-m", &pr_msg], false)?;

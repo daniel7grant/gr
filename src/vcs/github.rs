@@ -3,7 +3,7 @@ use super::common::{
     CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
     PullRequestStateFilter, User, VersionControl, VersionControlSettings,
 };
-use eyre::{eyre, Result};
+use eyre::{eyre, ContextCompat, Result};
 use native_tls::TlsConnector;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{fmt::Debug, sync::Arc};
@@ -327,9 +327,15 @@ impl VersionControl for GitHub {
 
     #[instrument(skip(self))]
     fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest> {
+        // TODO: is this the correct head for a repo?
+        let (head, _) = self
+            .repo
+            .split_once("/")
+            .wrap_err(eyre!("Invalid repo format: {}.", self.repo))?;
+
         let prs: Vec<GitHubPullRequest> = self.call(
             "GET",
-            &self.get_repository_url(&format!("/pulls?state=all&head={}", branch)),
+            &self.get_repository_url(&format!("/pulls?state=all&head={head}:{branch}")),
             None as Option<i32>,
         )?;
 
