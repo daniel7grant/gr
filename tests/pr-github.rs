@@ -116,6 +116,8 @@ fn test_pr() -> Result<()> {
         vec!["pr", "create", "-m", &pr_msg, "-t", &base_branch],
         true,
     )?;
+    let got_pr = exec(gr, vec!["pr", "get"], false)?;
+    test_pr_result(got_pr, &key)?;
     let merged_pr = exec(gr, vec!["pr", "merge"], false)?;
     test_pr_result(merged_pr, &key)?;
     let current_branch = exec("git", vec!["branch", "--show-current"], false)?;
