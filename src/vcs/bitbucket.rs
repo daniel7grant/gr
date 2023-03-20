@@ -283,14 +283,17 @@ impl Bitbucket {
     }
 
     #[instrument(skip(self))]
-    fn call_paginated<T: DeserializeOwned>(&self, url: &str) -> Result<Vec<T>> {
+    fn call_paginated<T: DeserializeOwned>(&self, url: &str, params: &str) -> Result<Vec<T>> {
         let mut collected_values: Vec<T> = vec![];
         let mut i = 1;
         loop {
             info!("Reading page {}.", i);
 
-            let mut page: BitbucketPaginated<T> =
-                self.call("GET", &format!("{url}?page={i}"), None as Option<i32>)?;
+            let mut page: BitbucketPaginated<T> = self.call(
+                "GET",
+                &format!("{url}?page={i}{params}"),
+                None as Option<i32>,
+            )?;
 
             collected_values.append(&mut page.values);
 
@@ -310,7 +313,7 @@ impl Bitbucket {
             .split_once("/")
             .wrap_err(eyre!("Repo URL is malformed: {}", &self.repo))?;
         let members: Vec<BitbucketMembership> =
-            self.call_paginated(&format!("/workspaces/{workspace}/members"))?;
+            self.call_paginated(&format!("/workspaces/{workspace}/members"), "")?;
 
         Ok(members
             .into_iter()
@@ -369,7 +372,7 @@ impl VersionControl for Bitbucket {
     #[instrument(skip(self))]
     fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest> {
         let prs: Vec<BitbucketPullRequest> =
-            self.call_paginated(&self.get_repository_url("/pullrequests"))?;
+            self.call_paginated(&self.get_repository_url("/pullrequests"), "")?;
 
         prs.into_iter()
             .find(|pr| pr.source.branch.name == branch)
@@ -379,13 +382,15 @@ impl VersionControl for Bitbucket {
     #[instrument(skip(self))]
     fn list_prs(&self, filters: ListPullRequestFilters) -> Result<Vec<PullRequest>> {
         let state_param = match filters.state {
-            PullRequestStateFilter::Open => "?state=OPEN",
-            PullRequestStateFilter::Closed => "?state=DECLINED",
-            PullRequestStateFilter::Merged => "?state=MERGED",
+            PullRequestStateFilter::Open => "&state=OPEN",
+            PullRequestStateFilter::Closed => "&state=DECLINED",
+            PullRequestStateFilter::Merged => "&state=MERGED",
             PullRequestStateFilter::Locked | PullRequestStateFilter::All => "",
         };
-        let prs: Vec<BitbucketPullRequest> =
-            self.call_paginated(&self.get_repository_url(&format!("/pullrequests{state_param}")))?;
+        let prs: Vec<BitbucketPullRequest> = self.call_paginated(
+            &self.get_repository_url(&format!("/pullrequests")),
+            state_param,
+        )?;
 
         Ok(prs.into_iter().map(|pr| pr.into()).collect())
     }
