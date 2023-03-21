@@ -7,6 +7,8 @@
 -   Refactor ureq calls to handle 400-500 status code errors gracefully
 -   Fix Bitbucket pull request list parameters to avoid an infinite loop
 -   Fix Github pull request querying by adding the repo orgname to the branch name
+-   Fix README sync with npm package in pipeline
+-   Add metadata for binstall to the Cargo.toml file
 
 ## [0.1.4] - 2023-03-17
 
