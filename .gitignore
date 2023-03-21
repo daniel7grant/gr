@@ -1,1 +1,3 @@
 /target
+tests/repositories/*
+!tests/repositories/.keep

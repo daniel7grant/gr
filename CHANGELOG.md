@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.5] - 2023-03-22
+
+-   Add integration (end-to-end) tests for GitHub, GitLab and Bitbucket integrations
+-   Add test running to GitHub Workflows
+-   Refactor ureq calls to handle 400-500 status code errors gracefully
+-   Fix Bitbucket pull request list parameters to avoid an infinite loop
+-   Fix Github pull request querying by adding the repo orgname to the branch name
+
 ## [0.1.4] - 2023-03-17
 
 ### Fixed

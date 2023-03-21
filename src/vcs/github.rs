@@ -3,13 +3,13 @@ use super::common::{
     CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
     PullRequestStateFilter, User, VersionControl, VersionControlSettings,
 };
-use eyre::{eyre, Context, Result};
+use eyre::{eyre, ContextCompat, Result};
 use native_tls::TlsConnector;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{fmt::Debug, sync::Arc};
 use time::OffsetDateTime;
 use tracing::{info, instrument, trace};
-use ureq::{Agent, AgentBuilder};
+use ureq::{Agent, AgentBuilder, Error};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GitHubUser {
@@ -222,30 +222,38 @@ impl GitHub {
             .set("User-Agent", "gr")
             .set("Authorization", &format!("Bearer {}", token))
             .set("Content-Type", "application/json");
-        let result = if let Some(body) = body {
+        let result = if let Some(body) = &body {
             trace!("Sending body: {}.", serde_json::to_string(&body)?);
-
-            request.send_json(&body)
+            request.send_json(body)
         } else {
             request.call()
-        }
-        .wrap_err("Sending data failed.")?;
+        };
 
-        let status = result.status();
-        let t = result.into_string()?;
+        match result {
+            Ok(result) => {
+                let status = result.status();
+                let t = result.into_string()?;
 
-        info!(
-            "Received response with response code {} with body size {}.",
-            status,
-            t.len()
-        );
-        trace!("Response body: {t}.");
+                info!(
+                    "Received response with response code {} with body size {}.",
+                    status,
+                    t.len()
+                );
+                trace!("Response body: {t}.");
+                let t: T = serde_json::from_str(&t)?;
+                Ok(t)
+            }
+            Err(Error::Status(status, result)) => {
+                let t = result.into_string()?;
 
-        if status >= 400 {
-            Err(eyre!("Request failed (response: {}).", t))
-        } else {
-            let t: T = serde_json::from_str(&t)?;
-            Ok(t)
+                info!(
+                    "Received response with response code {} with body size {}.",
+                    status,
+                    t.len()
+                );
+                Err(eyre!("Request failed (response: {}).", t))
+            }
+            Err(Error::Transport(_)) => Err(eyre!("Sending data failed.")),
         }
     }
 
@@ -319,9 +327,15 @@ impl VersionControl for GitHub {
 
     #[instrument(skip(self))]
     fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest> {
+        // TODO: is this the correct head for a repo?
+        let (head, _) = self
+            .repo
+            .split_once("/")
+            .wrap_err(eyre!("Invalid repo format: {}.", self.repo))?;
+
         let prs: Vec<GitHubPullRequest> = self.call(
             "GET",
-            &self.get_repository_url(&format!("/pulls?state=all&head={}", branch)),
+            &self.get_repository_url(&format!("/pulls?state=all&head={head}:{branch}")),
             None as Option<i32>,
         )?;
 

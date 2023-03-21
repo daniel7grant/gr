@@ -3,16 +3,13 @@ use super::common::{
     CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
     PullRequestStateFilter, PullRequestUserFilter, User, VersionControl, VersionControlSettings,
 };
-use eyre::{
-    eyre, Context,
-    Result,
-};
+use eyre::{eyre, Result};
 use native_tls::TlsConnector;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{fmt::Debug, sync::Arc};
 use time::OffsetDateTime;
 use tracing::{info, instrument, trace};
-use ureq::{Agent, AgentBuilder};
+use ureq::{Agent, AgentBuilder, Error};
 use urlencoding::encode;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -50,7 +47,7 @@ struct GitLabRepository {
     name_with_namespace: String,
     path: String,
     path_with_namespace: String,
-    description: String,
+    description: Option<String>,
     #[serde(with = "time::serde::iso8601")]
     created_at: OffsetDateTime,
     default_branch: String,
@@ -60,7 +57,7 @@ struct GitLabRepository {
     last_activity_at: String,
     archived: bool,
     visibility: String,
-    owner: GitLabUser,
+    owner: Option<GitLabUser>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -235,30 +232,38 @@ impl GitLab {
             .request(method, &url)
             .set("Authorization", &format!("Bearer {}", token))
             .set("Content-Type", "application/json");
-        let result = if let Some(body) = body {
+        let result = if let Some(body) = &body {
             trace!("Sending body: {}.", serde_json::to_string(&body)?);
-
-            request.send_json(&body)
+            request.send_json(body)
         } else {
             request.call()
-        }
-        .wrap_err("Sending data failed.")?;
+        };
 
-        let status = result.status();
-        let t = result.into_string()?;
+        match result {
+            Ok(result) => {
+                let status = result.status();
+                let t = result.into_string()?;
 
-        info!(
-            "Received response with response code {} with body size {}.",
-            status,
-            t.len()
-        );
-        trace!("Response body: {t}.");
+                info!(
+                    "Received response with response code {} with body size {}.",
+                    status,
+                    t.len()
+                );
+                trace!("Response body: {t}.");
+                let t: T = serde_json::from_str(&t)?;
+                Ok(t)
+            }
+            Err(Error::Status(status, result)) => {
+                let t = result.into_string()?;
 
-        if status >= 400 {
-            Err(eyre!("Request failed (response: {}).", t))
-        } else {
-            let t: T = serde_json::from_str(&t)?;
-            Ok(t)
+                info!(
+                    "Received response with response code {} with body size {}.",
+                    status,
+                    t.len()
+                );
+                Err(eyre!("Request failed (response: {}).", t))
+            }
+            Err(Error::Transport(_)) => Err(eyre!("Sending data failed.")),
         }
     }
 

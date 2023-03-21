@@ -3,13 +3,13 @@ use super::common::{
     CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
     PullRequestStateFilter, User, VersionControl, VersionControlSettings,
 };
-use eyre::{eyre, Context, ContextCompat, Result};
+use eyre::{eyre, ContextCompat, Result};
 use native_tls::TlsConnector;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{fmt::Debug, sync::Arc};
 use time::OffsetDateTime;
 use tracing::{info, instrument, trace};
-use ureq::{Agent, AgentBuilder};
+use ureq::{Agent, AgentBuilder, Error};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub enum BitbucketPullRequestState {
@@ -252,36 +252,48 @@ impl Bitbucket {
             request.send_json(body)
         } else {
             request.call()
-        }
-        .wrap_err("Sending data failed.")?;
+        };
 
-        let status = result.status();
-        let t = result.into_string()?;
+        match result {
+            Ok(result) => {
+                let status = result.status();
+                let t = result.into_string()?;
 
-        info!(
-            "Received response with response code {} with body size {}.",
-            status,
-            t.len()
-        );
-        trace!("Response body: {t}.");
+                info!(
+                    "Received response with response code {} with body size {}.",
+                    status,
+                    t.len()
+                );
+                trace!("Response body: {t}.");
+                let t: T = serde_json::from_str(&t)?;
+                Ok(t)
+            }
+            Err(Error::Status(status, result)) => {
+                let t = result.into_string()?;
 
-        if status >= 400 {
-            Err(eyre!("Request failed (response: {}).", t))
-        } else {
-            let t: T = serde_json::from_str(&t)?;
-            Ok(t)
+                info!(
+                    "Received response with response code {} with body size {}.",
+                    status,
+                    t.len()
+                );
+                Err(eyre!("Request failed (response: {}).", t))
+            }
+            Err(Error::Transport(_)) => Err(eyre!("Sending data failed.")),
         }
     }
 
     #[instrument(skip(self))]
-    fn call_paginated<T: DeserializeOwned>(&self, url: &str) -> Result<Vec<T>> {
+    fn call_paginated<T: DeserializeOwned>(&self, url: &str, params: &str) -> Result<Vec<T>> {
         let mut collected_values: Vec<T> = vec![];
         let mut i = 1;
         loop {
             info!("Reading page {}.", i);
 
-            let mut page: BitbucketPaginated<T> =
-                self.call("GET", &format!("{url}?page={i}"), None as Option<i32>)?;
+            let mut page: BitbucketPaginated<T> = self.call(
+                "GET",
+                &format!("{url}?page={i}{params}"),
+                None as Option<i32>,
+            )?;
 
             collected_values.append(&mut page.values);
 
@@ -301,7 +313,7 @@ impl Bitbucket {
             .split_once("/")
             .wrap_err(eyre!("Repo URL is malformed: {}", &self.repo))?;
         let members: Vec<BitbucketMembership> =
-            self.call_paginated(&format!("/workspaces/{workspace}/members"))?;
+            self.call_paginated(&format!("/workspaces/{workspace}/members"), "")?;
 
         Ok(members
             .into_iter()
@@ -360,7 +372,7 @@ impl VersionControl for Bitbucket {
     #[instrument(skip(self))]
     fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest> {
         let prs: Vec<BitbucketPullRequest> =
-            self.call_paginated(&self.get_repository_url("/pullrequests"))?;
+            self.call_paginated(&self.get_repository_url("/pullrequests"), "")?;
 
         prs.into_iter()
             .find(|pr| pr.source.branch.name == branch)
@@ -370,13 +382,15 @@ impl VersionControl for Bitbucket {
     #[instrument(skip(self))]
     fn list_prs(&self, filters: ListPullRequestFilters) -> Result<Vec<PullRequest>> {
         let state_param = match filters.state {
-            PullRequestStateFilter::Open => "?state=OPEN",
-            PullRequestStateFilter::Closed => "?state=DECLINED",
-            PullRequestStateFilter::Merged => "?state=MERGED",
+            PullRequestStateFilter::Open => "&state=OPEN",
+            PullRequestStateFilter::Closed => "&state=DECLINED",
+            PullRequestStateFilter::Merged => "&state=MERGED",
             PullRequestStateFilter::Locked | PullRequestStateFilter::All => "",
         };
-        let prs: Vec<BitbucketPullRequest> =
-            self.call_paginated(&self.get_repository_url(&format!("/pullrequests{state_param}")))?;
+        let prs: Vec<BitbucketPullRequest> = self.call_paginated(
+            &self.get_repository_url(&format!("/pullrequests")),
+            state_param,
+        )?;
 
         Ok(prs.into_iter().map(|pr| pr.into()).collect())
     }
