@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.1.5] - 2023-03-22
 
 -   Add integration (end-to-end) tests for GitHub, GitLab and Bitbucket integrations
 -   Add test running to GitHub Workflows
