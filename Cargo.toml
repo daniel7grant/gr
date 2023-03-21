@@ -7,6 +7,11 @@ license = "MIT"
 documentation = "https://github.com/daniel7grant/gr"
 repository = "https://github.com/daniel7grant/gr"
 
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }_{ target }{ archive-suffix }"
+bin-dir = "{ bin }{ binary-ext }"
+pkg-fmt = "zip"
+
 [dependencies]
 atty = "0.2.14"
 base64 = "0.13.1"
