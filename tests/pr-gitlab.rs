@@ -128,7 +128,7 @@ fn test_pr() -> Result<()> {
     )?;
     let got_pr = exec(gr, vec!["pr", "get"], false)?;
     test_pr_result(got_pr, &key)?;
-    sleep(Duration::from_secs(1));
+    sleep(Duration::from_secs(3)); // We have to wait a bit
     let merged_pr = exec(gr, vec!["pr", "merge"], false)?;
     test_pr_result(merged_pr, &key)?;
     let current_branch = exec("git", vec!["branch", "--show-current"], false)?;
