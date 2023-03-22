@@ -3,7 +3,7 @@ use super::common::{
     CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
     PullRequestStateFilter, PullRequestUserFilter, User, VersionControl, VersionControlSettings,
 };
-use eyre::{eyre, Context, Result};
+use eyre::{eyre, Result};
 use native_tls::TlsConnector;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{fmt::Debug, sync::Arc};
