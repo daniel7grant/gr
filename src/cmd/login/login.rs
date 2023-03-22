@@ -29,7 +29,7 @@ pub fn login(args: Cli, mut conf: Configuration) -> Result<()> {
 
             (hostname, repo)
         };
-        let vcs = init_vcs(hostname.clone(), repo, settings);
+        let vcs = init_vcs(hostname.clone(), repo, settings)?;
 
         // If the token arg is passed, validate and use that
         let token = if let Some(token) = token {
