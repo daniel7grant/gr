@@ -15,12 +15,16 @@ pub fn login(args: Cli, mut conf: Configuration) -> Result<()> {
     let Cli { command, dir, .. } = args;
     if let Commands::Login {
         hostname,
+        vcs_type,
         repo: repo_name,
         token,
     } = command
     {
         // Get hostname and repo and initialize VCS
-        let settings = VersionControlSettings::default();
+        let settings = VersionControlSettings {
+            vcs_type: vcs_type.clone(),
+            ..VersionControlSettings::default()
+        };
         let (hostname, repo) = if let Some(hostname) = hostname {
             (hostname, repo_name.clone().unwrap_or_default())
         } else {
@@ -41,7 +45,8 @@ pub fn login(args: Cli, mut conf: Configuration) -> Result<()> {
                 "To login to {}, create a token and copy the token value.",
                 hostname
             );
-            if !url.contains("scopes=") {
+            // TODO: this is a dirty hack
+            if hostname == "bitbucket.org" {
                 println!("The token needs account, workspace and project read, pull request read and write permissions.");
                 println!("You have to enter you username and the token separated with a colon (e.g. user:ATBB...).");
             }
@@ -96,7 +101,7 @@ pub fn login(args: Cli, mut conf: Configuration) -> Result<()> {
                     .or_insert(VcsConfig {
                         auth: token,
                         repositories: HashMap::default(),
-                        vcs_type: None,
+                        vcs_type,
                     });
             }
         };

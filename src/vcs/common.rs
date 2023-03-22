@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
 use crate::formatters::formatter::{Formatter, FormatterType};
-use crate::vcs::{bitbucket::Bitbucket, github::GitHub, gitlab::GitLab};
+use crate::vcs::{bitbucket::Bitbucket, gitea::Gitea, github::GitHub, gitlab::GitLab};
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct User {
@@ -112,6 +112,7 @@ pub fn init_vcs(
             "github" => Ok(Box::new(GitHub::init(hostname, repo, settings))),
             "bitbucket" => Ok(Box::new(Bitbucket::init(hostname, repo, settings))),
             "gitlab" => Ok(Box::new(GitLab::init(hostname, repo, settings))),
+            "gitea" => Ok(Box::new(Gitea::init(hostname, repo, settings))),
             _ => Err(eyre!("Server type {vcs_type} not found.")),
         }
     } else {
