@@ -169,6 +169,60 @@ $ gr pr decline")]
 }
 
 #[derive(Debug, Subcommand)]
+#[command(after_help = "Examples:
+
+Create new repository:
+$ gr repo new 
+
+Fork a repository:
+$ gr repo fork https://github.com/daniel7grant/gr
+
+Get information about the current repository:
+$ gr repo get
+")]
+pub enum RepoCommands {
+    #[command(after_help = "Examples:
+
+Get the repository information in the current directory:
+$ gr repo new 
+")]
+    /// Create new repository
+    New {
+        repository: String,
+    },
+    #[command(after_help = "Examples:
+
+Get the repository information in the current directory:
+$ gr repo new 
+")]
+    /// Fork existing repository
+    Fork {
+        repository: String,
+    },
+    #[command(after_help = "Examples:
+
+Get the repository information in the current directory:
+$ gr repo get
+
+Open repository in the browser:
+$ gr repo get --open
+")]
+    /// Get the open repository
+    Get {
+        /// Open the repository in the browser
+        #[arg(long)]
+        open: bool,
+    },
+    #[command(after_help = "Examples:
+
+Open repository in the browser:
+$ gr repo open
+")]
+    /// Open the repository in the browser
+    Open {},
+}
+
+#[derive(Debug, Subcommand)]
 pub enum Commands {
     #[command(after_help = "Examples:
 
@@ -188,9 +242,12 @@ $ gr login github.com")]
         #[arg(long)]
         token: Option<String>,
     },
-    /// Interact with pull requests
+    /// Open, list and merge pull requests
     #[command(subcommand)]
     Pr(PrCommands),
+    /// Fork or create repositories
+    #[command(subcommand)]
+    Repo(RepoCommands),
     /// Generate tab completion to shell
     Completion { shell: Shell },
 }
