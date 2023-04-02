@@ -1,5 +1,5 @@
 use crate::cmd::{
-    args::{Cli, Commands, PrCommands},
+    args::{Cli, Commands, RepoCommands},
     config::Configuration,
 };
 use eyre::{eyre, ContextCompat, Result};
@@ -14,10 +14,10 @@ pub fn get(args: Cli, conf: Configuration) -> Result<()> {
         branch,
         dir,
         auth,
-        output: _,
+        output,
         verbose: _,
     } = args;
-    if let Commands::Pr(PrCommands::Get { .. }) = command {
+    if let Commands::Repo(RepoCommands::Get { open }) = command {
         let repository = LocalRepository::init(dir)?;
         let (hostname, repo, ..) = repository.get_parsed_remote(branch)?;
 
@@ -36,9 +36,11 @@ pub fn get(args: Cli, conf: Configuration) -> Result<()> {
             ))?
         };
 
-        let _ = init_vcs(hostname, repo, settings);
-        
-        Err(eyre!("Getting information about current repo is not implemented"))
+        let vcs = init_vcs(hostname, repo, settings);
+
+        let repo = vcs.get_repository()?;
+        repo.print(open, output.into());
+        Ok(())
     } else {
         Err(eyre!("Invalid command!"))
     }

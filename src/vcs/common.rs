@@ -81,6 +81,34 @@ pub struct ListPullRequestFilters {
     pub state: PullRequestStateFilter,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Repository {
+    pub name: String,
+    pub full_name: String,
+    pub owner: Option<User>,
+    pub html_url: String,
+    pub description: String,
+    #[serde(with = "time::serde::iso8601")]
+    pub created_at: OffsetDateTime,
+    #[serde(with = "time::serde::iso8601")]
+    pub updated_at: OffsetDateTime,
+    pub private: bool,
+    pub archived: bool,
+    pub default_branch: String,
+    pub forks_count: u32,
+    pub stars_count: u32,
+}
+
+impl Repository {
+    pub fn print(&self, in_browser: bool, formatter_type: FormatterType) {
+        // Open in browser if open is true
+        if in_browser && open_in_browser(&self.html_url).is_ok() {
+            return;
+        }
+        print!("{}", self.show(formatter_type));
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct VersionControlSettings {
     pub auth: String,
@@ -91,8 +119,12 @@ pub trait VersionControl {
     fn init(hostname: String, repo: String, settings: VersionControlSettings) -> Self
     where
         Self: Sized;
+
+    // Login
     fn login_url(&self) -> String;
     fn validate_token(&self, token: &str) -> Result<()>;
+
+    // Pull requests
     fn create_pr(&self, pr: CreatePullRequest) -> Result<PullRequest>;
     fn get_pr_by_id(&self, id: u32) -> Result<PullRequest>;
     fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest>;
@@ -100,6 +132,9 @@ pub trait VersionControl {
     fn approve_pr(&self, id: u32) -> Result<()>;
     fn close_pr(&self, id: u32) -> Result<PullRequest>;
     fn merge_pr(&self, id: u32, delete_source_branch: bool) -> Result<PullRequest>;
+
+    // Repositories
+    fn get_repository(&self) -> Result<Repository>;
 }
 
 pub fn init_vcs(

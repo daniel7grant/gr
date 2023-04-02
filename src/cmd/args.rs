@@ -172,7 +172,7 @@ $ gr pr decline")]
 #[command(after_help = "Examples:
 
 Create new repository:
-$ gr repo new 
+$ gr repo new new-repo
 
 Fork a repository:
 $ gr repo fork https://github.com/daniel7grant/gr
@@ -183,22 +183,18 @@ $ gr repo get
 pub enum RepoCommands {
     #[command(after_help = "Examples:
 
-Get the repository information in the current directory:
-$ gr repo new 
+Create new repository:
+$ gr repo new new-repo
 ")]
     /// Create new repository
-    New {
-        repository: String,
-    },
+    New { repository: String },
     #[command(after_help = "Examples:
-
-Get the repository information in the current directory:
-$ gr repo new 
+    
+Fork an existing repository:
+$ gr repo fork https://github.com/daniel7grant/gr
 ")]
     /// Fork existing repository
-    Fork {
-        repository: String,
-    },
+    Fork { repository: String },
     #[command(after_help = "Examples:
 
 Get the repository information in the current directory:

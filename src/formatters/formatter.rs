@@ -1,5 +1,5 @@
 use super::utils::to_fixed_length;
-use crate::vcs::common::{PullRequest, PullRequestState};
+use crate::vcs::common::{PullRequest, PullRequestState, Repository};
 use colored::Colorize;
 
 pub enum FormatterType {
@@ -78,5 +78,31 @@ impl Formatter for PullRequest {
         let branch = to_fixed_length(&self.source, SHORT_BRANCH_SIZE, true).blue();
         let colored_id = format!("#{}", self.id).dimmed();
         format!("{} {} {:>6}\n", title, branch, colored_id)
+    }
+}
+
+impl Formatter for Repository {
+    fn show_json(&self) -> String {
+        serde_json::to_string(&self).unwrap()
+    }
+    fn show_normal(&self) -> String {
+        let title_line = to_fixed_length(&self.full_name, TITLE_SIZE, true);
+        let description = if !self.description.is_empty() {
+            format!("\n{}\n---", self.description)
+        } else {
+            "".to_string()
+        };
+        let url_line = format!("{}", self.html_url.dimmed());
+
+        format!(
+            "{title_line}
+{description}
+{url_line}
+"
+        )
+    }
+    fn show_short(&self) -> String {
+        let title = to_fixed_length(&self.full_name, SHORT_TITLE_SIZE, true);
+        format!("{}\n", title)
     }
 }

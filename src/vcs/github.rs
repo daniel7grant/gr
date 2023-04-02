@@ -1,7 +1,7 @@
 // Documentation: https://docs.github.com/en/rest/quickstart
 use super::common::{
     CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
-    PullRequestStateFilter, User, VersionControl, VersionControlSettings,
+    PullRequestStateFilter, Repository, User, VersionControl, VersionControlSettings,
 };
 use eyre::{eyre, ContextCompat, Result};
 use native_tls::TlsConnector;
@@ -40,9 +40,42 @@ struct GitHubRepository {
     #[serde(with = "time::serde::iso8601")]
     updated_at: OffsetDateTime,
     stargazers_count: u32,
+    forks_count: u32,
     archived: bool,
-    disabled: bool,
     default_branch: String,
+}
+
+impl From<GitHubRepository> for Repository {
+    fn from(repo: GitHubRepository) -> Repository {
+        let GitHubRepository {
+            name,
+            full_name,
+            private,
+            owner,
+            html_url,
+            description,
+            created_at,
+            updated_at,
+            stargazers_count,
+            forks_count,
+            archived,
+            default_branch,
+        } = repo;
+        Repository {
+            name,
+            full_name,
+            private,
+            owner: Some(owner.into()),
+            html_url,
+            description: description.unwrap_or_default(),
+            created_at,
+            updated_at,
+            archived,
+            default_branch,
+            stars_count: stargazers_count,
+            forks_count,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -401,5 +434,12 @@ impl VersionControl for GitHub {
         )?;
 
         self.get_pr_by_id(id)
+    }
+
+    #[instrument(skip_all)]
+    fn get_repository(&self) -> Result<Repository> {
+        let repo = self.get_repository_data()?;
+
+        Ok(repo.into())
     }
 }

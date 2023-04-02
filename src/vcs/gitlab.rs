@@ -1,7 +1,8 @@
 // Documentation: https://docs.gitlab.com/ee/api/api_resources.html
 use super::common::{
     CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
-    PullRequestStateFilter, PullRequestUserFilter, User, VersionControl, VersionControlSettings,
+    PullRequestStateFilter, PullRequestUserFilter, Repository, User, VersionControl,
+    VersionControlSettings,
 };
 use eyre::{eyre, Result};
 use native_tls::TlsConnector;
@@ -40,6 +41,12 @@ pub struct GitLabApproval {
     approved_by: Vec<GitLabApprovalUser>,
 }
 
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
+pub enum GitLabRepositoryVisibility {
+    Private,
+    Public,
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 struct GitLabRepository {
     id: u32,
@@ -50,14 +57,49 @@ struct GitLabRepository {
     description: Option<String>,
     #[serde(with = "time::serde::iso8601")]
     created_at: OffsetDateTime,
+    #[serde(with = "time::serde::iso8601")]
+    last_activity_at: OffsetDateTime,
     default_branch: String,
     web_url: String,
     forks_count: u32,
     star_count: u32,
-    last_activity_at: String,
     archived: bool,
-    visibility: String,
+    visibility: GitLabRepositoryVisibility,
     owner: Option<GitLabUser>,
+}
+
+impl From<GitLabRepository> for Repository {
+    fn from(repo: GitLabRepository) -> Repository {
+        let GitLabRepository {
+            name,
+            path_with_namespace,
+            description,
+            created_at,
+            default_branch,
+            web_url,
+            forks_count,
+            star_count,
+            last_activity_at,
+            archived,
+            visibility,
+            owner,
+            ..
+        } = repo;
+        Repository {
+            name,
+            full_name: path_with_namespace,
+            owner: owner.map(|o| o.into()),
+            html_url: web_url,
+            description: description.unwrap_or_default(),
+            created_at,
+            updated_at: last_activity_at,
+            private: visibility == GitLabRepositoryVisibility::Private,
+            archived,
+            default_branch,
+            forks_count,
+            stars_count: star_count,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -418,5 +460,12 @@ impl VersionControl for GitLab {
         )?;
 
         Ok(pr.into())
+    }
+
+    #[instrument(skip_all)]
+    fn get_repository(&self) -> Result<Repository> {
+        let repo = self.get_repository_data()?;
+
+        Ok(repo.into())
     }
 }

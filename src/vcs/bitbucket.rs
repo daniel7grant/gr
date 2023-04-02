@@ -1,7 +1,7 @@
 // Documentation: https://developer.atlassian.com/cloud/bitbucket/rest/intro/
 use super::common::{
     CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
-    PullRequestStateFilter, User, VersionControl, VersionControlSettings,
+    PullRequestStateFilter, Repository, User, VersionControl, VersionControlSettings,
 };
 use eyre::{eyre, ContextCompat, Result};
 use native_tls::TlsConnector;
@@ -68,36 +68,94 @@ impl From<BitbucketUser> for User {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct BitbucketPullRequestLink {
+pub struct BitbucketLink {
     pub href: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct BitbucketPullRequestLinks {
-    pub html: BitbucketPullRequestLink,
+pub struct BitbucketLinks {
+    pub html: BitbucketLink,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct BitbucketPullRequestCommit {
+pub struct BitbucketCommit {
     pub hash: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct BitbucketPullRequestBranch {
+pub struct BitbucketBranch {
     pub name: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct BitbucketPullRequestRepository {
-    pub name: String,
-    pub full_name: String,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct BitbucketPullRequestRevision {
-    pub branch: BitbucketPullRequestBranch,
+pub struct BitbucketRevision {
+    pub branch: BitbucketBranch,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub commit: Option<BitbucketPullRequestCommit>,
+    pub commit: Option<BitbucketCommit>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct BitbucketRepositoryProject {
+    uuid: String,
+    key: String,
+    owner: User,
+    name: String,
+    description: String,
+    is_private: bool,
+    #[serde(with = "time::serde::iso8601")]
+    created_on: OffsetDateTime,
+    #[serde(with = "time::serde::iso8601")]
+    updated_on: OffsetDateTime,
+    has_publicly_visible_repos: bool,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct BitbucketRepository {
+    uuid: String,
+    name: String,
+    full_name: String,
+    links: BitbucketLinks,
+    owner: BitbucketUser,
+    description: String,
+    #[serde(with = "time::serde::iso8601")]
+    created_on: OffsetDateTime,
+    #[serde(with = "time::serde::iso8601")]
+    updated_on: OffsetDateTime,
+    language: String,
+    project: BitbucketRepositoryProject,
+    mainbranch: BitbucketBranch,
+    is_private: bool,
+}
+
+impl From<BitbucketRepository> for Repository {
+    fn from(repo: BitbucketRepository) -> Repository {
+        let BitbucketRepository {
+            name,
+            links,
+            full_name,
+            owner,
+            description,
+            created_on,
+            updated_on,
+            mainbranch,
+            is_private,
+            ..
+        } = repo;
+        Repository {
+            name,
+            full_name,
+            owner: Some(owner.into()),
+            html_url: links.html.href,
+            description,
+            created_at: created_on,
+            updated_at: updated_on,
+            private: is_private,
+            archived: false,
+            default_branch: mainbranch.name,
+            forks_count: 0,
+            stars_count: 0,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -106,13 +164,13 @@ pub struct BitbucketPullRequest {
     pub state: BitbucketPullRequestState,
     pub title: String,
     pub description: String,
-    pub links: BitbucketPullRequestLinks,
+    pub links: BitbucketLinks,
     #[serde(with = "time::serde::iso8601")]
     pub created_on: OffsetDateTime,
     #[serde(with = "time::serde::iso8601")]
     pub updated_on: OffsetDateTime,
-    pub source: BitbucketPullRequestRevision,
-    pub destination: BitbucketPullRequestRevision,
+    pub source: BitbucketRevision,
+    pub destination: BitbucketRevision,
     pub author: BitbucketUser,
     pub closed_by: Option<BitbucketUser>,
     pub reviewers: Option<Vec<BitbucketUser>>,
@@ -160,9 +218,9 @@ pub struct BitbucketReviewer {
 pub struct BitbucketCreatePullRequest {
     pub title: String,
     pub description: String,
-    pub source: BitbucketPullRequestRevision,
+    pub source: BitbucketRevision,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub destination: Option<BitbucketPullRequestRevision>,
+    pub destination: Option<BitbucketRevision>,
     pub close_source_branch: bool,
     pub reviewers: Vec<BitbucketReviewer>,
 }
@@ -185,12 +243,12 @@ impl From<CreatePullRequest> for BitbucketCreatePullRequest {
         Self {
             title,
             description,
-            source: BitbucketPullRequestRevision {
-                branch: BitbucketPullRequestBranch { name: source },
+            source: BitbucketRevision {
+                branch: BitbucketBranch { name: source },
                 commit: None,
             },
-            destination: destination.map(|name| BitbucketPullRequestRevision {
-                branch: BitbucketPullRequestBranch { name },
+            destination: destination.map(|name| BitbucketRevision {
+                branch: BitbucketBranch { name },
                 commit: None,
             }),
             close_source_branch,
@@ -423,5 +481,13 @@ impl VersionControl for Bitbucket {
         )?;
 
         Ok(pr.into())
+    }
+
+    #[instrument(skip_all)]
+    fn get_repository(&self) -> Result<Repository> {
+        let repo =
+            self.call::<BitbucketRepository, i32>("GET", &self.get_repository_url(""), None)?;
+
+        Ok(repo.into())
     }
 }
