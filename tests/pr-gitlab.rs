@@ -132,7 +132,7 @@ fn test_pr() -> Result<()> {
     let merged_pr = exec(gr, vec!["pr", "merge"], false)?;
     test_pr_result(merged_pr, &key)?;
     let current_branch = exec("git", vec!["branch", "--show-current"], false)?;
-    assert_eq!(current_branch.iter().next().unwrap().trim(), &base_branch);
+    assert_eq!(current_branch.first().unwrap().trim(), &base_branch);
 
     // Delete created repositories
     env::set_current_dir("..")?;

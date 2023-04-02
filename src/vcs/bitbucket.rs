@@ -310,7 +310,7 @@ impl Bitbucket {
     fn get_workspace_users(&self, usernames: Vec<String>) -> Result<Vec<BitbucketUser>> {
         let (workspace, _) = self
             .repo
-            .split_once("/")
+            .split_once('/')
             .wrap_err(eyre!("Repo URL is malformed: {}", &self.repo))?;
         let members: Vec<BitbucketMembership> =
             self.call_paginated(&format!("/workspaces/{workspace}/members"), "")?;
@@ -341,7 +341,7 @@ impl VersionControl for Bitbucket {
     }
     #[instrument(skip_all)]
     fn validate_token(&self, token: &str) -> Result<()> {
-        if !token.contains(":") {
+        if !token.contains(':') {
             Err(eyre!("Enter your Bitbucket username and the token, separated with a colon (user:ABBT...)."))
         } else {
             Ok(())
@@ -387,10 +387,8 @@ impl VersionControl for Bitbucket {
             PullRequestStateFilter::Merged => "&state=MERGED",
             PullRequestStateFilter::Locked | PullRequestStateFilter::All => "",
         };
-        let prs: Vec<BitbucketPullRequest> = self.call_paginated(
-            &self.get_repository_url(&format!("/pullrequests")),
-            state_param,
-        )?;
+        let prs: Vec<BitbucketPullRequest> =
+            self.call_paginated(&self.get_repository_url("/pullrequests"), state_param)?;
 
         Ok(prs.into_iter().map(|pr| pr.into()).collect())
     }

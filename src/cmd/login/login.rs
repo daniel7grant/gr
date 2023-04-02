@@ -62,7 +62,7 @@ pub fn login(args: Cli, mut conf: Configuration) -> Result<()> {
                     .wrap_err("Reading the token failed.")?;
                 match vcs.validate_token(&token) {
                     Ok(_) => break,
-                    Err(err) => println!("{}", err.to_string()),
+                    Err(err) => println!("{}", err),
                 }
             }
             token

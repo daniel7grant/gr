@@ -1,6 +1,6 @@
+use super::utils::to_fixed_length;
 use crate::vcs::common::{PullRequest, PullRequestState};
 use colored::Colorize;
-use super::utils::to_fixed_length;
 
 pub enum FormatterType {
     Json,
@@ -51,7 +51,7 @@ impl Formatter for PullRequest {
             self.updated_at.date(),
         );
         let branch_line = format!("{} -> {}", self.source.blue(), self.target.blue());
-        let description = if self.description.len() > 0 {
+        let description = if !self.description.is_empty() {
             format!("\n{}\n---", self.description)
         } else {
             "".to_string()
