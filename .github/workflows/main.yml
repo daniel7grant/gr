@@ -30,6 +30,10 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
+      - name: Check clippy errors
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
       - name: Setup configuration files
         run: |
           git config --global user.email "gr-test@d7gr.net"
@@ -72,11 +76,7 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: cargo-${{ hashFiles('**/Cargo.lock') }}
-      - name: Check clippy errors
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-      - name: Test if release builds correctly
+      - name: Build for Linux
         uses: actions-rs/cargo@v1
         with:
           command: build
