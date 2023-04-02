@@ -35,9 +35,9 @@ pub enum OutputType {
     Json,
 }
 
-impl Into<FormatterType> for OutputType  {
-    fn into(self) -> FormatterType {
-        match self {
+impl From<OutputType> for FormatterType {
+    fn from(val: OutputType) -> Self {
+        match val {
             OutputType::Normal => FormatterType::Normal,
             OutputType::Json => FormatterType::Json,
         }
@@ -74,7 +74,7 @@ $ gr pr create -m 'Do things' --target staging
 Create a pull request and merge it immediately (for fix branches):
 $ gr pr create -m 'Fix things' --merge --delete")]
     /// Create pull request for the current branch
-    /// 
+    ///
     /// The only required field is the title (--message / -m), other fields will be filled by sane defaults:
     /// the description will be the list of commits, the target branch is the default branch.
     Create {
@@ -152,7 +152,7 @@ $ gr pr approve")]
 Merge the pull request, and go to the target branch:
 $ gr pr merge")]
     /// Merge the pull request for the current branch
-    /// 
+    ///
     /// This operation will change the branches locally to the target branch and pull the merged changes.
     Merge {
         /// Delete remote and local branch after merging (remote is Gitlab and Bitbucket only)
