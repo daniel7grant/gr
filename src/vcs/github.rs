@@ -1,7 +1,8 @@
 // Documentation: https://docs.github.com/en/rest/quickstart
 use super::common::{
-    CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
-    PullRequestStateFilter, Repository, User, VersionControl, VersionControlSettings,
+    CreatePullRequest, CreateRepository, ForkRepository, ListPullRequestFilters, PullRequest,
+    PullRequestState, PullRequestStateFilter, Repository, RepositoryVisibility, User,
+    VersionControl, VersionControlSettings,
 };
 use eyre::{eyre, ContextCompat, Result};
 use native_tls::TlsConnector;
@@ -45,6 +46,13 @@ struct GitHubRepository {
     default_branch: String,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+struct GitHubCreateRepository {
+    name: String,
+    description: String,
+    private: bool,
+}
+
 impl From<GitHubRepository> for Repository {
     fn from(repo: GitHubRepository) -> Repository {
         let GitHubRepository {
@@ -64,8 +72,12 @@ impl From<GitHubRepository> for Repository {
         Repository {
             name,
             full_name,
-            private,
             owner: Some(owner.into()),
+            visibility: if private {
+                RepositoryVisibility::Private
+            } else {
+                RepositoryVisibility::Public
+            },
             html_url,
             description: description.unwrap_or_default(),
             created_at,
@@ -441,5 +453,32 @@ impl VersionControl for GitHub {
         let repo = self.get_repository_data()?;
 
         Ok(repo.into())
+    }
+
+    #[instrument(skip_all)]
+    fn create_repository(&self, repo: CreateRepository) -> Result<Repository> {
+        let CreateRepository {
+            name,
+            description,
+            visibility,
+            organization,
+        } = repo;
+        let create_repo: GitHubCreateRepository = GitHubCreateRepository {
+            name,
+            description: description.unwrap_or_default(),
+            private: visibility != RepositoryVisibility::Public,
+        };
+        let new_repo: GitHubRepository = if let Some(org) = organization {
+            self.call("POST", &format!("/orgs/{org}/repos"), Some(create_repo))
+        } else {
+            self.call("POST", "/user/repos", Some(create_repo))
+        }?;
+
+        Ok(new_repo.into())
+    }
+
+    #[instrument(skip_all)]
+    fn fork_repository(&self, _: ForkRepository) -> Result<Repository> {
+        todo!()
     }
 }

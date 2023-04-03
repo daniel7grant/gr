@@ -1,7 +1,8 @@
 // Documentation: https://developer.atlassian.com/cloud/bitbucket/rest/intro/
 use super::common::{
-    CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
-    PullRequestStateFilter, Repository, User, VersionControl, VersionControlSettings,
+    CreatePullRequest, CreateRepository, ForkRepository, ListPullRequestFilters, PullRequest,
+    PullRequestState, PullRequestStateFilter, Repository, RepositoryVisibility, User,
+    VersionControl, VersionControlSettings,
 };
 use eyre::{eyre, ContextCompat, Result};
 use native_tls::TlsConnector;
@@ -149,13 +150,24 @@ impl From<BitbucketRepository> for Repository {
             description,
             created_at: created_on,
             updated_at: updated_on,
-            private: is_private,
+            visibility: if is_private {
+                RepositoryVisibility::Private
+            } else {
+                RepositoryVisibility::Public
+            },
             archived: false,
             default_branch: mainbranch.name,
             forks_count: 0,
             stars_count: 0,
         }
     }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct BitbucketCreateRepository {
+    name: String,
+    description: String,
+    is_private: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -489,5 +501,39 @@ impl VersionControl for Bitbucket {
             self.call::<BitbucketRepository, i32>("GET", &self.get_repository_url(""), None)?;
 
         Ok(repo.into())
+    }
+
+    #[instrument(skip_all)]
+    fn create_repository(&self, repo: CreateRepository) -> Result<Repository> {
+        // TODO: make it work with user
+        let CreateRepository {
+            name,
+            organization,
+            visibility,
+            description,
+        } = repo;
+        let (user, _) = self
+            .settings
+            .auth
+            .split_once(':')
+            .wrap_err("Authentication format is invalid")?;
+        let workspace = organization.unwrap_or(user.to_string());
+        let create_repo: BitbucketCreateRepository = BitbucketCreateRepository {
+            name: name.clone(),
+            description: description.unwrap_or_default(),
+            is_private: visibility != RepositoryVisibility::Public,
+        };
+        let new_repo: BitbucketRepository = self.call(
+            "POST",
+            &format!("/repositories/{workspace}/{}", name),
+            Some(create_repo),
+        )?;
+
+        Ok(new_repo.into())
+    }
+
+    #[instrument(skip_all)]
+    fn fork_repository(&self, _: ForkRepository) -> Result<Repository> {
+        todo!()
     }
 }

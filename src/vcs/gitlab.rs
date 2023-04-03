@@ -1,8 +1,8 @@
 // Documentation: https://docs.gitlab.com/ee/api/api_resources.html
 use super::common::{
-    CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
-    PullRequestStateFilter, PullRequestUserFilter, Repository, User, VersionControl,
-    VersionControlSettings,
+    CreatePullRequest, CreateRepository, ForkRepository, ListPullRequestFilters, PullRequest,
+    PullRequestState, PullRequestStateFilter, PullRequestUserFilter, Repository,
+    RepositoryVisibility, User, VersionControl, VersionControlSettings,
 };
 use eyre::{eyre, Result};
 use native_tls::TlsConnector;
@@ -42,9 +42,20 @@ pub struct GitLabApproval {
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
+pub struct GitLabNamespace {
+    id: u32,
+    name: String,
+    web_url: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
 pub enum GitLabRepositoryVisibility {
-    Private,
+    #[serde(rename = "public")]
     Public,
+    #[serde(rename = "internal")]
+    Internal,
+    #[serde(rename = "private")]
+    Private,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -89,17 +100,30 @@ impl From<GitLabRepository> for Repository {
             name,
             full_name: path_with_namespace,
             owner: owner.map(|o| o.into()),
+            visibility: match visibility {
+                GitLabRepositoryVisibility::Public => RepositoryVisibility::Public,
+                GitLabRepositoryVisibility::Internal => RepositoryVisibility::Internal,
+                GitLabRepositoryVisibility::Private => RepositoryVisibility::Private,
+            },
             html_url: web_url,
             description: description.unwrap_or_default(),
             created_at,
             updated_at: last_activity_at,
-            private: visibility == GitLabRepositoryVisibility::Private,
             archived,
             default_branch,
             forks_count,
             stars_count: star_count,
         }
     }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct GitLabCreateRepository {
+    name: String,
+    path: String,
+    description: String,
+    namespace_id: Option<u32>,
+    visibility: GitLabRepositoryVisibility,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -469,5 +493,32 @@ impl VersionControl for GitLab {
         let repo = self.get_repository_data()?;
 
         Ok(repo.into())
+    }
+    #[instrument(skip_all)]
+    fn create_repository(&self, repo: CreateRepository) -> Result<Repository> {
+        let namespace_id = repo.organization.and_then(|org| {
+            self.call::<GitLabNamespace, Option<u32>>("POST", &format!("/namespaces?search={org}"), None)
+                .map(|ns| ns.id)
+                .ok()
+        });
+        let create_repo = GitLabCreateRepository {
+            name: repo.name.clone(),
+            path: repo.name,
+            description: repo.description.unwrap_or_default(),
+            namespace_id,
+            visibility: match repo.visibility {
+                RepositoryVisibility::Public => GitLabRepositoryVisibility::Public,
+                RepositoryVisibility::Internal => GitLabRepositoryVisibility::Internal,
+                RepositoryVisibility::Private => GitLabRepositoryVisibility::Private,
+            },
+        };
+
+        let new_repo: GitLabRepository = self.call("POST", "/projects", Some(create_repo))?;
+
+        Ok(new_repo.into())
+    }
+    #[instrument(skip_all)]
+    fn fork_repository(&self, _: ForkRepository) -> Result<Repository> {
+        todo!()
     }
 }

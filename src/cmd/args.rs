@@ -1,6 +1,7 @@
 use clap::{ArgAction, Command, CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::{generate, Generator, Shell};
 use gr_bin::formatters::formatter::FormatterType;
+use gr_bin::vcs::common::RepositoryVisibility;
 use std::io;
 use std::process;
 
@@ -40,6 +41,27 @@ impl From<OutputType> for FormatterType {
         match val {
             OutputType::Normal => FormatterType::Normal,
             OutputType::Json => FormatterType::Json,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Default)]
+pub enum Visibility {
+    /// Repo can be visible by anyone (default)
+    #[default]
+    Public,
+    /// Repo can only be visible by you
+    Private,
+    /// Repo can only be visible by logged in users (GitLab only)
+    Internal,
+}
+
+impl From<Visibility> for RepositoryVisibility {
+    fn from(val: Visibility) -> Self {
+        match val {
+            Visibility::Public => RepositoryVisibility::Public,
+            Visibility::Private => RepositoryVisibility::Private,
+            Visibility::Internal => RepositoryVisibility::Internal,
         }
     }
 }
@@ -187,7 +209,23 @@ Create new repository:
 $ gr repo new new-repo
 ")]
     /// Create new repository
-    New { repository: String },
+    New {
+        /// The name of the new repository
+        /// Can be either:
+        /// - a full URL, e.g. "https://github.com/user/gr.git"
+        /// - an organization and repo name, e.g. "user/gr"
+        /// - or a repo name (will be created under user) e.g. "gr"
+        repository: String,
+        /// The host of the server (e.g. "github.com")
+        #[arg(long)]
+        host: Option<String>,
+        /// The description of the new repo
+        #[arg(short, long)]
+        description: Option<String>,
+        /// The visibility of the new repo
+        #[arg(long, default_value = "public")]
+        visibility: Visibility,
+    },
     #[command(after_help = "Examples:
     
 Fork an existing repository:

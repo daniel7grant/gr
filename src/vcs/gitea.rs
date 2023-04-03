@@ -1,7 +1,8 @@
 // Documentation: https://codeberg.org/api/swagger
 use super::common::{
-    CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
-    PullRequestStateFilter, Repository, User, VersionControl, VersionControlSettings,
+    CreatePullRequest, CreateRepository, ForkRepository, ListPullRequestFilters, PullRequest,
+    PullRequestState, PullRequestStateFilter, Repository, RepositoryVisibility, User,
+    VersionControl, VersionControlSettings,
 };
 use eyre::{eyre, ContextCompat, Result};
 use native_tls::TlsConnector;
@@ -71,8 +72,12 @@ impl From<GiteaRepository> for Repository {
         Repository {
             name,
             full_name,
-            private,
             owner: Some(owner.into()),
+            visibility: if private {
+                RepositoryVisibility::Private
+            } else {
+                RepositoryVisibility::Public
+            },
             html_url,
             description: description.unwrap_or_default(),
             created_at,
@@ -83,6 +88,13 @@ impl From<GiteaRepository> for Repository {
             forks_count,
         }
     }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct GiteaCreateRepository {
+    name: String,
+    description: String,
+    private: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -410,7 +422,7 @@ impl VersionControl for Gitea {
     #[instrument(skip(self))]
     fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest> {
         let prs: Vec<GiteaPullRequest> =
-            self.call_paginated(&self.get_repository_url(&format!("/pulls")), "&state=all")?;
+            self.call_paginated(&self.get_repository_url("/pulls"), "&state=all")?;
 
         prs.into_iter()
             .find(|pr| pr.head.branch == branch)
@@ -467,7 +479,7 @@ impl VersionControl for Gitea {
 
     #[instrument(skip(self))]
     fn merge_pr(&self, id: u32, _: bool) -> Result<PullRequest> {
-        let _: () = self.call(
+        self.call(
             "POST",
             &self.get_repository_url(&format!("/pulls/{id}/merge")),
             Some(GiteaMergePullRequest {
@@ -483,5 +495,32 @@ impl VersionControl for Gitea {
         let repo = self.get_repository_data()?;
 
         Ok(repo.into())
+    }
+
+    #[instrument(skip_all)]
+    fn create_repository(&self, repo: CreateRepository) -> Result<Repository> {
+        let CreateRepository {
+            name,
+            description,
+            visibility,
+            organization,
+        } = repo;
+        let create_repo: GiteaCreateRepository = GiteaCreateRepository {
+            name,
+            description: description.unwrap_or_default(),
+            private: visibility != RepositoryVisibility::Public,
+        };
+        let new_repo: GiteaRepository = if let Some(org) = organization {
+            self.call("POST", &format!("/orgs/{org}/repos"), Some(create_repo))
+        } else {
+            self.call("POST", "/user/repos", Some(create_repo))
+        }?;
+
+        Ok(new_repo.into())
+    }
+
+    #[instrument(skip_all)]
+    fn fork_repository(&self, _: ForkRepository) -> Result<Repository> {
+        todo!()
     }
 }

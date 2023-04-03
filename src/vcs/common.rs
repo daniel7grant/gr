@@ -81,6 +81,13 @@ pub struct ListPullRequestFilters {
     pub state: PullRequestStateFilter,
 }
 
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub enum RepositoryVisibility {
+    Public,
+    Internal,
+    Private,
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Repository {
     pub name: String,
@@ -92,7 +99,7 @@ pub struct Repository {
     pub created_at: OffsetDateTime,
     #[serde(with = "time::serde::iso8601")]
     pub updated_at: OffsetDateTime,
-    pub private: bool,
+    pub visibility: RepositoryVisibility,
     pub archived: bool,
     pub default_branch: String,
     pub forks_count: u32,
@@ -107,6 +114,21 @@ impl Repository {
         }
         print!("{}", self.show(formatter_type));
     }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct CreateRepository {
+    pub name: String,
+    pub organization: Option<String>,
+    pub description: Option<String>,
+    pub visibility: RepositoryVisibility,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ForkRepository {
+    pub original: String,
+    pub name: String,
+    pub organization: Option<String>,
 }
 
 #[derive(Debug, Default)]
@@ -135,6 +157,8 @@ pub trait VersionControl {
 
     // Repositories
     fn get_repository(&self) -> Result<Repository>;
+    fn create_repository(&self, repo: CreateRepository) -> Result<Repository>;
+    fn fork_repository(&self, repo: ForkRepository) -> Result<Repository>;
 }
 
 pub fn init_vcs(
