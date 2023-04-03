@@ -36,7 +36,7 @@ pub fn get(args: Cli, conf: Configuration) -> Result<()> {
             ))?
         };
 
-        let vcs = init_vcs(hostname, repo, settings);
+        let vcs = init_vcs(hostname, repo, settings)?;
 
         let repo = vcs.get_repository()?;
         repo.print(open, output.into());

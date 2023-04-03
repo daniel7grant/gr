@@ -1,7 +1,7 @@
 // Documentation: https://codeberg.org/api/swagger
 use super::common::{
     CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
-    PullRequestStateFilter, User, VersionControl, VersionControlSettings,
+    PullRequestStateFilter, Repository, User, VersionControl, VersionControlSettings,
 };
 use eyre::{eyre, ContextCompat, Result};
 use native_tls::TlsConnector;
@@ -48,6 +48,41 @@ struct GiteaRepository {
     updated_at: OffsetDateTime,
     archived: bool,
     default_branch: String,
+    stars_count: u32,
+    forks_count: u32,
+}
+
+impl From<GiteaRepository> for Repository {
+    fn from(repo: GiteaRepository) -> Repository {
+        let GiteaRepository {
+            name,
+            full_name,
+            private,
+            owner,
+            html_url,
+            description,
+            created_at,
+            updated_at,
+            archived,
+            default_branch,
+            stars_count,
+            forks_count,
+        } = repo;
+        Repository {
+            name,
+            full_name,
+            private,
+            owner: Some(owner.into()),
+            html_url,
+            description: description.unwrap_or_default(),
+            created_at,
+            updated_at,
+            archived,
+            default_branch,
+            stars_count,
+            forks_count,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -441,5 +476,12 @@ impl VersionControl for Gitea {
         )?;
 
         self.get_pr_by_id(id)
+    }
+
+    #[instrument(skip_all)]
+    fn get_repository(&self) -> Result<Repository> {
+        let repo = self.get_repository_data()?;
+
+        Ok(repo.into())
     }
 }
