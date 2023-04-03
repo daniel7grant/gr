@@ -36,7 +36,7 @@ pub fn get(args: Cli, conf: Configuration) -> Result<()> {
             ))?
         };
 
-        let vcs = init_vcs(hostname, repo, settings);
+        let vcs = init_vcs(hostname, repo, settings)?;
 
         let pr = vcs.get_pr_by_branch(&branch)?;
         pr.print(open, output.into());

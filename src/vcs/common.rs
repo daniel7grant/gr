@@ -1,10 +1,10 @@
-use eyre::Result;
+use eyre::{eyre, Result};
 use open::that as open_in_browser;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
 use crate::formatters::formatter::{Formatter, FormatterType};
-use crate::vcs::{bitbucket::Bitbucket, github::GitHub, gitlab::GitLab};
+use crate::vcs::{bitbucket::Bitbucket, gitea::Gitea, github::GitHub, gitlab::GitLab};
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct User {
@@ -141,10 +141,23 @@ pub fn init_vcs(
     hostname: String,
     repo: String,
     settings: VersionControlSettings,
-) -> Box<dyn VersionControl> {
-    match (hostname.as_str(), &settings.vcs_type) {
-        ("github.com", _) => Box::new(GitHub::init(hostname, repo, settings)),
-        ("bitbucket.org", _) => Box::new(Bitbucket::init(hostname, repo, settings)),
-        (_, _) => Box::new(GitLab::init(hostname, repo, settings)),
+) -> Result<Box<dyn VersionControl>> {
+    if let Some(vcs_type) = &settings.vcs_type {
+        match vcs_type.as_str() {
+            "github" => Ok(Box::new(GitHub::init(hostname, repo, settings))),
+            "bitbucket" => Ok(Box::new(Bitbucket::init(hostname, repo, settings))),
+            "gitlab" => Ok(Box::new(GitLab::init(hostname, repo, settings))),
+            "gitea" => Ok(Box::new(Gitea::init(hostname, repo, settings))),
+            _ => Err(eyre!("Server type {vcs_type} not found.")),
+        }
+    } else {
+        match hostname.as_str() {
+            "github.com" => Ok(Box::new(GitHub::init(hostname, repo, settings))),
+            "bitbucket.org" => Ok(Box::new(Bitbucket::init(hostname, repo, settings))),
+            "gitlab.com" => Ok(Box::new(GitLab::init(hostname, repo, settings))),
+            _ => Err(eyre!(
+                "Server {hostname} type cannot be detected, add --type at login."
+            )),
+        }
     }
 }

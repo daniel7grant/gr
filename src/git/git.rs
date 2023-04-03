@@ -84,7 +84,7 @@ impl LocalRepository {
                 vec!["config", &format!("branch.{branch_name}.remote")],
                 false,
             )
-            .wrap_err(eyre!("Branch {} not found.", &branch_name))?
+            .wrap_err(eyre!("Branch {} doesn't have an upstream branch.", &branch_name))?
             .into_iter()
             .next()
             .wrap_err(eyre!(

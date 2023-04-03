@@ -226,11 +226,17 @@ Login to the current repo's remote:
 $ gr login
 
 Login to arbitrary remote:
-$ gr login github.com")]
+$ gr login github.com
+
+Login to a self-hosted remote:
+$ gr login git.example.org --type gitlab")]
     /// Login to a remote with a token
     Login {
         /// The host to login to (e.g. github.com, default: current repo)
         hostname: Option<String>,
+        /// The type of the instance, only required if self-hosted (e.g. gitlab, gitea)
+        #[arg(long = "type")]
+        vcs_type: Option<String>,
         /// The repo which the authentication should only appeal
         #[arg(long)]
         repo: Option<String>,

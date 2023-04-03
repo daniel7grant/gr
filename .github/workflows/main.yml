@@ -44,6 +44,7 @@ jobs:
           chmod -R 700 ~/.ssh
           ssh-keyscan -t rsa bitbucket.org >> ~/.ssh/known_hosts
           ssh-keyscan -t rsa gitlab.com >> ~/.ssh/known_hosts
+          ssh-keyscan -t rsa codeberg.org >> ~/.ssh/known_hosts
         env:
           GR_CONFIGURATION : ${{ secrets.GR_CONFIGURATION }}
           SSH_KEY : ${{ secrets.SSH_KEY }}

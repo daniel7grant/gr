@@ -36,7 +36,7 @@ pub fn approve(args: Cli, conf: Configuration) -> Result<()> {
             ))?
         };
 
-        let vcs = init_vcs(hostname, repo, settings);
+        let vcs = init_vcs(hostname, repo, settings)?;
         let pr = vcs.get_pr_by_branch(&branch)?;
         vcs.approve_pr(pr.id)?;
         pr.print(false, output.into());
