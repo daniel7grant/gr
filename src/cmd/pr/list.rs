@@ -41,7 +41,7 @@ pub fn list(args: Cli, conf: Configuration) -> Result<()> {
             ))?
         };
 
-        let vcs = init_vcs(hostname, repo, settings);
+        let vcs = init_vcs(hostname, repo, settings)?;
 
         let prs = vcs.list_prs(ListPullRequestFilters {
             state: match state {

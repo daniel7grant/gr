@@ -38,7 +38,7 @@ pub fn merge(args: Cli, conf: Configuration) -> Result<()> {
         };
 
         // Merge the PR
-        let vcs = init_vcs(hostname, repo, settings);
+        let vcs = init_vcs(hostname, repo, settings)?;
         let pr = vcs.get_pr_by_branch(&branch)?;
         let pr = vcs.merge_pr(pr.id, delete)?;
 

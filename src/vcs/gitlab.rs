@@ -309,8 +309,10 @@ impl VersionControl for GitLab {
     }
     #[instrument(skip_all)]
     fn validate_token(&self, token: &str) -> Result<()> {
-        if token.len() != 20 {
-            Err(eyre!("Your GitLab token has to be 20 characters long."))
+        if !token.starts_with("glpat-") {
+            Err(eyre!("Your GitLab token has to start with 'glpat'."))
+        } else if token.len() != 26 {
+            Err(eyre!("Your GitLab token has to be 26 characters long."))
         } else {
             Ok(())
         }

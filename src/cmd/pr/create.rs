@@ -50,7 +50,7 @@ pub fn create(args: Cli, mut conf: Configuration) -> Result<()> {
 
         let default_branch = settings.default_branch.clone();
 
-        let vcs = init_vcs(hostname.clone(), repo.clone(), settings);
+        let vcs = init_vcs(hostname.clone(), repo.clone(), settings)?;
 
         // Read the description from the STDIN or fallback to
         let description = description

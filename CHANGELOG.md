@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+-   Allow type to be defined at login
+-   Add Gitea integration
+
 ## [0.1.5] - 2023-03-22
 
 -   Add integration (end-to-end) tests for GitHub, GitLab and Bitbucket integrations
