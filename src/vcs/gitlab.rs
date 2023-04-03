@@ -323,7 +323,6 @@ impl VersionControl for GitLab {
             .reviewers
             .iter()
             .map(|reviewer| self.get_user_by_name(reviewer))
-            .into_iter()
             .collect::<Result<Vec<User>>>()?;
 
         pr.reviewers = reviewers.into_iter().map(|r| r.id).collect();

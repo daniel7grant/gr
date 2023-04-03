@@ -330,7 +330,7 @@ impl VersionControl for GitHub {
         // TODO: is this the correct head for a repo?
         let (head, _) = self
             .repo
-            .split_once("/")
+            .split_once('/')
             .wrap_err(eyre!("Invalid repo format: {}.", self.repo))?;
 
         let prs: Vec<GitHubPullRequest> = self.call(

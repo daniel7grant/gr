@@ -71,7 +71,7 @@ pub fn login(args: Cli, mut conf: Configuration) -> Result<()> {
                 token = token.trim().to_string();
                 match vcs.validate_token(&token) {
                     Ok(_) => break,
-                    Err(err) => println!("{}", err.to_string()),
+                    Err(err) => println!("{}", err),
                 }
             }
             token

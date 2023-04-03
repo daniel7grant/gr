@@ -19,7 +19,7 @@ pub fn approve(args: Cli, conf: Configuration) -> Result<()> {
     } = args;
     if let Commands::Pr(PrCommands::Approve {}) = command {
         let repository = LocalRepository::init(dir)?;
-        let (hostname, repo, branch) = repository.get_parsed_remote(branch.clone())?;
+        let (hostname, repo, branch) = repository.get_parsed_remote(branch)?;
 
         // Find settings or use the auth command
         let settings = conf.find_settings(&hostname, &repo);

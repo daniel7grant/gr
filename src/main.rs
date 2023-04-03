@@ -41,18 +41,16 @@ fn main() -> Result<()> {
 
     match run(args) {
         Ok(_) => Ok(()),
-        Err(err) => match output {
-            _ => {
-                match verbose {
-                    0 => error!("{}", err),
-                    _ => {
-                        for err in err.chain() {
-                            error!("{}", err);
-                        }
+        Err(err) => {
+            match verbose {
+                0 => error!("{}", err),
+                _ => {
+                    for err in err.chain() {
+                        error!("{}", err);
                     }
                 }
-                process::exit(1)
             }
-        },
+            process::exit(1)
+        }
     }
 }
