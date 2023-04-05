@@ -72,6 +72,8 @@ struct GitLabRepository {
     last_activity_at: OffsetDateTime,
     default_branch: String,
     web_url: String,
+    ssh_url_to_repo: String,
+    http_url_to_repo: String,
     forks_count: u32,
     star_count: u32,
     archived: bool,
@@ -88,6 +90,8 @@ impl From<GitLabRepository> for Repository {
             created_at,
             default_branch,
             web_url,
+            ssh_url_to_repo,
+            http_url_to_repo,
             forks_count,
             star_count,
             last_activity_at,
@@ -113,6 +117,8 @@ impl From<GitLabRepository> for Repository {
             default_branch,
             forks_count,
             stars_count: star_count,
+            ssh_url: ssh_url_to_repo,
+            https_url: http_url_to_repo,
         }
     }
 }
@@ -497,9 +503,13 @@ impl VersionControl for GitLab {
     #[instrument(skip_all)]
     fn create_repository(&self, repo: CreateRepository) -> Result<Repository> {
         let namespace_id = repo.organization.and_then(|org| {
-            self.call::<GitLabNamespace, Option<u32>>("POST", &format!("/namespaces?search={org}"), None)
-                .map(|ns| ns.id)
-                .ok()
+            self.call::<GitLabNamespace, Option<u32>>(
+                "POST",
+                &format!("/namespaces?search={org}"),
+                None,
+            )
+            .map(|ns| ns.id)
+            .ok()
         });
         let create_repo = GitLabCreateRepository {
             name: repo.name.clone(),

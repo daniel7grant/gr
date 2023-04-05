@@ -94,6 +94,8 @@ pub struct Repository {
     pub full_name: String,
     pub owner: Option<User>,
     pub html_url: String,
+    pub ssh_url: String,
+    pub https_url: String,
     pub description: String,
     #[serde(with = "time::serde::iso8601")]
     pub created_at: OffsetDateTime,

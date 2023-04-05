@@ -69,6 +69,12 @@ impl From<BitbucketUser> for User {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+pub struct BitbucketCloneLink {
+    pub name: String,
+    pub href: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct BitbucketLink {
     pub href: String,
 }
@@ -76,6 +82,7 @@ pub struct BitbucketLink {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct BitbucketLinks {
     pub html: BitbucketLink,
+    pub clone: Vec<BitbucketCloneLink>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -142,6 +149,16 @@ impl From<BitbucketRepository> for Repository {
             is_private,
             ..
         } = repo;
+        let ssh_url = links
+            .clone
+            .iter()
+            .find(|BitbucketCloneLink { name, .. }| name == "ssh")
+            .map(|BitbucketCloneLink { href, .. }| href);
+        let https_url = links
+            .clone
+            .iter()
+            .find(|BitbucketCloneLink { name, .. }| name == "https")
+            .map(|BitbucketCloneLink { href, .. }| href);
         Repository {
             name,
             full_name,
@@ -159,6 +176,8 @@ impl From<BitbucketRepository> for Repository {
             default_branch: mainbranch.name,
             forks_count: 0,
             stars_count: 0,
+            ssh_url: ssh_url.unwrap().to_owned(),
+            https_url: https_url.unwrap().to_owned(),
         }
     }
 }

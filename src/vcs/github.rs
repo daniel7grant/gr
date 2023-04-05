@@ -35,6 +35,8 @@ struct GitHubRepository {
     private: bool,
     owner: GitHubUser,
     html_url: String,
+    ssh_url: String,
+    clone_url: String,
     description: Option<String>,
     #[serde(with = "time::serde::iso8601")]
     created_at: OffsetDateTime,
@@ -61,6 +63,8 @@ impl From<GitHubRepository> for Repository {
             private,
             owner,
             html_url,
+            ssh_url,
+            clone_url,
             description,
             created_at,
             updated_at,
@@ -79,6 +83,8 @@ impl From<GitHubRepository> for Repository {
                 RepositoryVisibility::Public
             },
             html_url,
+            ssh_url,
+            https_url: clone_url,
             description: description.unwrap_or_default(),
             created_at,
             updated_at,
