@@ -190,6 +190,18 @@ struct BitbucketCreateRepository {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+struct BitbucketForkRepositoryWorkspace {
+    slug: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct BitbucketForkRepository {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
+    workspace: BitbucketForkRepositoryWorkspace,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct BitbucketPullRequest {
     pub id: u32,
     pub state: BitbucketPullRequestState,
@@ -552,7 +564,29 @@ impl VersionControl for Bitbucket {
     }
 
     #[instrument(skip_all)]
-    fn fork_repository(&self, _: ForkRepository) -> Result<Repository> {
-        todo!()
+    fn fork_repository(&self, repo: ForkRepository) -> Result<Repository> {
+        let ForkRepository {
+            original,
+            name,
+            organization,
+        } = repo;
+
+        let (user, _) = self
+            .settings
+            .auth
+            .split_once(':')
+            .wrap_err("Authentication format is invalid")?;
+        let workspace = organization.unwrap_or(user.to_string());
+
+        let new_repo: BitbucketRepository = self.call(
+            "POST",
+            &format!("/repos/{original}/forks"),
+            Some(BitbucketForkRepository {
+                name,
+                workspace: BitbucketForkRepositoryWorkspace { slug: workspace },
+            }),
+        )?;
+
+        Ok(new_repo.into())
     }
 }

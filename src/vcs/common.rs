@@ -129,7 +129,7 @@ pub struct CreateRepository {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ForkRepository {
     pub original: String,
-    pub name: String,
+    pub name: Option<String>,
     pub organization: Option<String>,
 }
 

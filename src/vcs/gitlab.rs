@@ -133,6 +133,14 @@ struct GitLabCreateRepository {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+struct GitLabForkRepository {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    namespace_path: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub enum GitLabPullRequestState {
     #[serde(rename = "opened")]
     Open,
@@ -281,7 +289,7 @@ pub struct GitLab {
 impl GitLab {
     #[instrument(skip_all)]
     fn get_repository_url(&self, url: &str) -> String {
-        format!("/projects/{}{}", encode(&self.repo).into_owned(), url)
+        format!("/projects/{}{}", encode(&self.repo), url)
     }
 
     #[instrument(skip_all)]
@@ -528,7 +536,22 @@ impl VersionControl for GitLab {
         Ok(new_repo.into())
     }
     #[instrument(skip_all)]
-    fn fork_repository(&self, _: ForkRepository) -> Result<Repository> {
-        todo!()
+    fn fork_repository(&self, repo: ForkRepository) -> Result<Repository> {
+        let ForkRepository {
+            original,
+            name,
+            organization: namespace_path,
+        } = repo;
+
+        let new_repo: GitLabRepository = self.call(
+            "POST",
+            &format!("/repos/{}/forks", encode(&original)),
+            Some(GitLabForkRepository {
+                name,
+                namespace_path,
+            }),
+        )?;
+
+        Ok(new_repo.into())
     }
 }

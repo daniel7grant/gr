@@ -55,6 +55,14 @@ struct GitHubCreateRepository {
     private: bool,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+struct GitHubForkRepository {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    organization: Option<String>,
+}
+
 impl From<GitHubRepository> for Repository {
     fn from(repo: GitHubRepository) -> Repository {
         let GitHubRepository {
@@ -484,7 +492,19 @@ impl VersionControl for GitHub {
     }
 
     #[instrument(skip_all)]
-    fn fork_repository(&self, _: ForkRepository) -> Result<Repository> {
-        todo!()
+    fn fork_repository(&self, repo: ForkRepository) -> Result<Repository> {
+        let ForkRepository {
+            original,
+            name,
+            organization,
+        } = repo;
+
+        let new_repo: GitHubRepository = self.call(
+            "POST",
+            &format!("/repos/{original}/forks"),
+            Some(GitHubForkRepository { organization, name }),
+        )?;
+
+        Ok(new_repo.into())
     }
 }
