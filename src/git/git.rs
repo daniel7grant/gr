@@ -180,7 +180,7 @@ impl LocalRepository {
 
     #[instrument(skip(self))]
     pub fn push(self: &LocalRepository, branch: &str) -> Result<()> {
-        self.run(vec!["push", "-u", "origin", &branch], true)
+        self.run(vec!["push", "-u", "origin", branch], true)
             .wrap_err(eyre!("Could not push {branch} to remote"))?;
 
         Ok(())

@@ -237,6 +237,9 @@ $ gr repo new new-repo --clone --dir path/to/another
         /// The visibility of the new repo
         #[arg(long, default_value = "private")]
         visibility: Visibility,
+        /// Whether to open the new repository in the browser
+        #[arg(long)]
+		open: bool,
     },
     #[command(after_help = "Examples:
     

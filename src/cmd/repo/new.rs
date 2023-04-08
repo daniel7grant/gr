@@ -23,6 +23,7 @@ pub fn new(args: Cli, mut conf: Configuration) -> Result<()> {
         description,
         visibility,
         clone,
+        open,
     }) = command
     {
         // Check if the host if full URL
@@ -70,7 +71,7 @@ pub fn new(args: Cli, mut conf: Configuration) -> Result<()> {
             visibility: visibility.into(),
         })?;
 
-        repo.print(false, output.into());
+        repo.print(open, output.into());
 
         let repository = LocalRepository::init(dir.clone())?;
         if clone {
