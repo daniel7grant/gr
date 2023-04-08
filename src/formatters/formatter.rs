@@ -86,7 +86,12 @@ impl Formatter for Repository {
         serde_json::to_string(&self).unwrap()
     }
     fn show_normal(&self) -> String {
-        let title_line = to_fixed_length(&self.full_name, TITLE_SIZE, true);
+        let title_line = to_fixed_length(&self.full_name, TITLE_SIZE, true).bold();
+        let counts_line = format!(
+            "{} stars, {} forks",
+            self.stars_count.to_string().yellow(),
+            self.forks_count.to_string().yellow(),
+        );
         let description = if !self.description.is_empty() {
             format!("\n{}\n---", self.description)
         } else {
@@ -96,6 +101,7 @@ impl Formatter for Repository {
 
         format!(
             "{title_line}
+{counts_line}
 {description}
 {url_line}
 "
