@@ -242,9 +242,20 @@ $ gr repo new new-repo --clone --dir path/to/another
     
 Fork an existing repository:
 $ gr repo fork https://github.com/daniel7grant/gr
+
+Fork an existing repository to a different name:
+$ gr repo fork https://github.com/daniel7grant/gr gr_forked
+
+Fork an existing repository to a different organization:
+$ gr repo fork https://github.com/daniel7grant/gr organization/gr
 ")]
     /// Fork existing repository
-    Fork { repository: String },
+    Fork {
+        /// The source repository to fork from
+        source: String,
+        /// The target name, e.g. "name" or "org/name" (by default the same name to the current user)
+        repository: Option<String>,
+    },
     #[command(after_help = "Examples:
 
 Get the repository information in the current directory:

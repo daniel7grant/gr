@@ -565,11 +565,7 @@ impl VersionControl for Bitbucket {
 
     #[instrument(skip_all)]
     fn fork_repository(&self, repo: ForkRepository) -> Result<Repository> {
-        let ForkRepository {
-            original,
-            name,
-            organization,
-        } = repo;
+        let ForkRepository { name, organization } = repo;
 
         let (user, _) = self
             .settings
@@ -580,7 +576,7 @@ impl VersionControl for Bitbucket {
 
         let new_repo: BitbucketRepository = self.call(
             "POST",
-            &format!("/repos/{original}/forks"),
+            &self.get_repository_url("/forks"),
             Some(BitbucketForkRepository {
                 name,
                 workspace: BitbucketForkRepositoryWorkspace { slug: workspace },

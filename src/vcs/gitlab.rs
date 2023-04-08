@@ -538,14 +538,13 @@ impl VersionControl for GitLab {
     #[instrument(skip_all)]
     fn fork_repository(&self, repo: ForkRepository) -> Result<Repository> {
         let ForkRepository {
-            original,
             name,
             organization: namespace_path,
         } = repo;
 
         let new_repo: GitLabRepository = self.call(
             "POST",
-            &format!("/repos/{}/forks", encode(&original)),
+            &self.get_repository_url("/forks"),
             Some(GitLabForkRepository {
                 name,
                 namespace_path,

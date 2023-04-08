@@ -535,15 +535,11 @@ impl VersionControl for Gitea {
 
     #[instrument(skip_all)]
     fn fork_repository(&self, repo: ForkRepository) -> Result<Repository> {
-        let ForkRepository {
-            original,
-            name,
-            organization,
-        } = repo;
+        let ForkRepository { name, organization } = repo;
 
         let new_repo: GiteaRepository = self.call(
             "POST",
-            &format!("/repos/{original}/forks"),
+            &self.get_repository_url("/forks"),
             Some(GiteaForkRepository { organization, name }),
         )?;
 
