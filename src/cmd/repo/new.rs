@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use crate::cmd::{
     args::{Cli, Commands, RepoCommands},
     config::{Configuration, VcsConfig},
@@ -74,30 +72,25 @@ pub fn new(args: Cli, mut conf: Configuration) -> Result<()> {
 
         repo.print(false, output.into());
 
-        // TODO: Figure out HTTPS or SSH url automatically
-        let url = repo.ssh_url;
-
+        let repository = LocalRepository::init(dir.clone())?;
         if clone {
             // If clone is given, clone it to the directory (or here)
-            if let Some(dir) = dir {
-				if Path::new(&dir).exists() {
-					// If the path exists, we have to clone inside of it
-                    LocalRepository::init(Some(dir))?.clone(url, None)?;
-                } else {
-					// Otherwise clone to the new repo
-					LocalRepository::init(None)?.clone(url, Some(dir))?;
-                }
-            } else {
-                LocalRepository::init(None)?.clone(url, None)?;
-            }
+            repository
+                .clone(repo.ssh_url, dir.clone())
+                .or_else(|_| repository.clone(repo.https_url, dir))?;
         } else {
             // If repository is git repo and has no remote, set remote and push to the new repo
-            let repository = LocalRepository::init(dir)?;
-            if repository.has_git() && !repository.has_remote() {
-                repository.set_remote(url)?;
-
+            if repository.has_git() && repository.get_remotes()?.is_empty() {
                 let branch = repository.get_branch()?;
-                repository.push(branch)?;
+
+                repository
+                    .set_remote("origin".to_string(), repo.ssh_url)
+                    .and_then(|_| repository.push(&branch))
+                    .or_else(|_| {
+                        repository
+                            .set_remote("origin".to_string(), repo.https_url)
+                            .and_then(|_| repository.push(&branch))
+                    })?;
             }
         }
 

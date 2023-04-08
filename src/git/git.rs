@@ -2,7 +2,7 @@ use crate::git::url::parse_url;
 use eyre::{eyre, Context, ContextCompat, Result};
 use std::{
     env,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{Command, Stdio},
 };
 use tracing::{debug, info, instrument};
@@ -59,17 +59,18 @@ impl LocalRepository {
     }
 
     #[instrument(skip(self))]
-    pub fn has_remote(self: &LocalRepository) -> bool {
-        if let Ok(remotes) = self.run(vec!["remote"], false) {
-            remotes.len() > 0
-        } else {
-            false
-        }
+    pub fn get_remotes(self: &LocalRepository) -> Result<Vec<String>> {
+        self.run(vec!["remote"], false)
     }
 
     #[instrument(skip(self))]
-    pub fn set_remote(self: &LocalRepository, url: String) -> Result<()> {
-        self.run(vec!["remote", "add", "origin", &url], false)?;
+    pub fn set_remote(self: &LocalRepository, name: String, url: String) -> Result<()> {
+        let existing_remotes = self.get_remotes()?;
+        if existing_remotes.iter().any(|s| s == &name) {
+            self.run(vec!["remote", "set-url", &name, &url], false)?;
+        } else {
+            self.run(vec!["remote", "add", &name, &url], false)?;
+        }
 
         Ok(())
     }
@@ -178,7 +179,7 @@ impl LocalRepository {
     }
 
     #[instrument(skip(self))]
-    pub fn push(self: &LocalRepository, branch: String) -> Result<()> {
+    pub fn push(self: &LocalRepository, branch: &str) -> Result<()> {
         self.run(vec!["push", "-u", "origin", &branch], true)
             .wrap_err(eyre!("Could not push {branch} to remote"))?;
 
@@ -188,8 +189,13 @@ impl LocalRepository {
     #[instrument(skip(self))]
     pub fn clone(self: &LocalRepository, url: String, dir: Option<String>) -> Result<()> {
         if let Some(dir) = dir {
-            // We have to reinitialize the repository to allow cloning into empty repo
-            LocalRepository::init(None)?.run(vec!["clone", &url, &dir], true)
+            if Path::new(&dir).exists() {
+                // If the path exists, we have to clone inside of it
+                self.run(vec!["clone", &url], true)
+            } else {
+                // Otherwise we have to reinitialize the repository to allow cloning into empty repo
+                LocalRepository::init(None)?.run(vec!["clone", &url, &dir], true)
+            }
         } else {
             self.run(vec!["clone", &url], true)
         }
