@@ -1,10 +1,12 @@
+use std::path::Path;
+
 use crate::cmd::{
     args::{Cli, Commands, RepoCommands},
     config::{Configuration, VcsConfig},
 };
 use eyre::{eyre, ContextCompat, Result};
 use gr_bin::{
-    git::url::parse_url,
+    git::{git::LocalRepository, url::parse_url},
     vcs::common::{init_vcs, CreateRepository, VersionControlSettings},
 };
 use tracing::instrument;
@@ -12,19 +14,23 @@ use tracing::instrument;
 #[instrument(skip_all, fields(command = ?args.command))]
 pub fn new(args: Cli, mut conf: Configuration) -> Result<()> {
     let Cli {
-        command, output, ..
+        command,
+        output,
+        dir,
+        ..
     } = args;
     if let Commands::Repo(RepoCommands::New {
-        repository,
+        repository: repository_name,
         host,
         description,
         visibility,
+        clone,
     }) = command
     {
         // Check if the host if full URL
-        let (parsed_host, path) = parse_url(&repository)
+        let (parsed_host, path) = parse_url(&repository_name)
             .map(|(host, path)| (Some(host), path))
-            .unwrap_or((None, repository));
+            .unwrap_or((None, repository_name));
 
         // Check if the path can be split into parts
         let (organization, name) = match path.split_once('/') {
@@ -68,7 +74,32 @@ pub fn new(args: Cli, mut conf: Configuration) -> Result<()> {
 
         repo.print(false, output.into());
 
-        // TODO: clone it
+        // TODO: Figure out HTTPS or SSH url automatically
+        let url = repo.ssh_url;
+
+        if clone {
+            // If clone is given, clone it to the directory (or here)
+            if let Some(dir) = dir {
+				if Path::new(&dir).exists() {
+					// If the path exists, we have to clone inside of it
+                    LocalRepository::init(Some(dir))?.clone(url, None)?;
+                } else {
+					// Otherwise clone to the new repo
+					LocalRepository::init(None)?.clone(url, Some(dir))?;
+                }
+            } else {
+                LocalRepository::init(None)?.clone(url, None)?;
+            }
+        } else {
+            // If repository is git repo and has no remote, set remote and push to the new repo
+            let repository = LocalRepository::init(dir)?;
+            if repository.has_git() && !repository.has_remote() {
+                repository.set_remote(url)?;
+
+                let branch = repository.get_branch()?;
+                repository.push(branch)?;
+            }
+        }
 
         Ok(())
     } else {

@@ -205,8 +205,17 @@ $ gr repo get
 pub enum RepoCommands {
     #[command(after_help = "Examples:
 
-Create new repository:
+Create new repository (and push the current dir if it has a git repository):
 $ gr repo new new-repo
+
+Create new repository for a specific remote:
+$ gr repo new new-repo --host github.com
+
+Create new repo and clone it immediately:
+$ gr repo new new-repo --clone
+
+Create new repo and clone somewhere else:
+$ gr repo new new-repo --clone --dir path/to/another
 ")]
     /// Create new repository
     New {
@@ -219,6 +228,9 @@ $ gr repo new new-repo
         /// The host of the server (e.g. "github.com")
         #[arg(long)]
         host: Option<String>,
+        /// Whether to clone the new repository
+        #[arg(long)]
+        clone: bool,
         /// The description of the new repo
         #[arg(short, long)]
         description: Option<String>,
