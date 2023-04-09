@@ -127,9 +127,13 @@ impl From<GitLabRepository> for Repository {
 struct GitLabCreateRepository {
     name: String,
     path: String,
-    description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
     namespace_id: Option<u32>,
     visibility: GitLabRepositoryVisibility,
+    initialize_with_readme: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    default_branch: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -510,7 +514,18 @@ impl VersionControl for GitLab {
     }
     #[instrument(skip_all)]
     fn create_repository(&self, repo: CreateRepository) -> Result<Repository> {
-        let namespace_id = repo.organization.and_then(|org| {
+        let CreateRepository {
+            name,
+            organization,
+            description,
+            visibility,
+            init,
+            default_branch,
+            gitignore: _,
+            license: _,
+        } = repo;
+
+        let namespace_id = organization.and_then(|org| {
             self.call::<GitLabNamespace, Option<u32>>(
                 "POST",
                 &format!("/namespaces?search={org}"),
@@ -519,16 +534,19 @@ impl VersionControl for GitLab {
             .map(|ns| ns.id)
             .ok()
         });
+
         let create_repo = GitLabCreateRepository {
-            name: repo.name.clone(),
-            path: repo.name,
-            description: repo.description.unwrap_or_default(),
+            path: name.clone(),
+            name,
+            description,
             namespace_id,
-            visibility: match repo.visibility {
+            initialize_with_readme: init,
+            visibility: match visibility {
                 RepositoryVisibility::Public => GitLabRepositoryVisibility::Public,
                 RepositoryVisibility::Internal => GitLabRepositoryVisibility::Internal,
                 RepositoryVisibility::Private => GitLabRepositoryVisibility::Private,
             },
+            default_branch,
         };
 
         let new_repo: GitLabRepository = self.call("POST", "/projects", Some(create_repo))?;

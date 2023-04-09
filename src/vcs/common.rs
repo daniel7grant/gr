@@ -124,6 +124,10 @@ pub struct CreateRepository {
     pub organization: Option<String>,
     pub description: Option<String>,
     pub visibility: RepositoryVisibility,
+	pub init: bool,
+	pub default_branch: Option<String>,
+	pub gitignore: Option<String>,
+	pub license: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

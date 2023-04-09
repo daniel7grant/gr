@@ -96,11 +96,19 @@ impl From<GiteaRepository> for Repository {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Default)]
 struct GiteaCreateRepository {
     name: String,
-    description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
     private: bool,
+    auto_init: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    default_branch: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    license: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    gitignores: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -518,11 +526,19 @@ impl VersionControl for Gitea {
             description,
             visibility,
             organization,
+            init,
+            default_branch,
+            gitignore,
+            license,
         } = repo;
         let create_repo: GiteaCreateRepository = GiteaCreateRepository {
             name,
-            description: description.unwrap_or_default(),
+            description,
             private: visibility != RepositoryVisibility::Public,
+            auto_init: init,
+            default_branch,
+            gitignores: gitignore,
+            license,
         };
         let new_repo: GiteaRepository = if let Some(org) = organization {
             self.call("POST", &format!("/orgs/{org}/repos"), Some(create_repo))

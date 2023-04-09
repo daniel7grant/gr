@@ -51,8 +51,14 @@ struct GitHubRepository {
 #[derive(Debug, Deserialize, Serialize)]
 struct GitHubCreateRepository {
     name: String,
-    description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
     private: bool,
+    auto_init: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    gitignore_template: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    license_template: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -476,11 +482,18 @@ impl VersionControl for GitHub {
             description,
             visibility,
             organization,
+            init,
+            default_branch: _,
+            gitignore,
+            license,
         } = repo;
         let create_repo: GitHubCreateRepository = GitHubCreateRepository {
             name,
-            description: description.unwrap_or_default(),
+            description,
             private: visibility != RepositoryVisibility::Public,
+            auto_init: init,
+            gitignore_template: gitignore,
+            license_template: license,
         };
         let new_repo: GitHubRepository = if let Some(org) = organization {
             self.call("POST", &format!("/orgs/{org}/repos"), Some(create_repo))
@@ -498,7 +511,7 @@ impl VersionControl for GitHub {
         let new_repo: GitHubRepository = self.call(
             "POST",
             &self.get_repository_url("/forks"),
-            Some(GitHubForkRepository { organization, name }),
+            Some(GitHubForkRepository { name, organization }),
         )?;
 
         Ok(new_repo.into())

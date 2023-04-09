@@ -24,6 +24,10 @@ pub fn new(args: Cli, mut conf: Configuration) -> Result<()> {
         visibility,
         clone,
         open,
+        init,
+        default_branch,
+        gitignore,
+        license,
     }) = command
     {
         // Check if the host if full URL
@@ -69,6 +73,10 @@ pub fn new(args: Cli, mut conf: Configuration) -> Result<()> {
             organization,
             description,
             visibility: visibility.into(),
+            init,
+            default_branch,
+            gitignore,
+            license,
         })?;
 
         repo.print(open, output.into());

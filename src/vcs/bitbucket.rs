@@ -169,7 +169,8 @@ impl From<BitbucketRepository> for Repository {
 #[derive(Debug, Deserialize, Serialize)]
 struct BitbucketCreateRepository {
     name: String,
-    description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
     is_private: bool,
 }
 
@@ -527,6 +528,7 @@ impl VersionControl for Bitbucket {
             organization,
             visibility,
             description,
+            ..
         } = repo;
         let (user, _) = self
             .settings
@@ -536,7 +538,7 @@ impl VersionControl for Bitbucket {
         let workspace = organization.unwrap_or(user.to_string());
         let create_repo: BitbucketCreateRepository = BitbucketCreateRepository {
             name: name.clone(),
-            description: description.unwrap_or_default(),
+            description,
             is_private: visibility != RepositoryVisibility::Public,
         };
         let new_repo: BitbucketRepository = self.call(

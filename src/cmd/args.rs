@@ -203,6 +203,7 @@ Get information about the current repository:
 $ gr repo get
 ")]
 pub enum RepoCommands {
+	#[command(alias = "create")]
     #[command(after_help = "Examples:
 
 Create new repository (and push the current dir if it has a git repository):
@@ -216,14 +217,13 @@ $ gr repo new new-repo --clone
 
 Create new repo and clone somewhere else:
 $ gr repo new new-repo --clone --dir path/to/another
+
+Create new repository and initialize with (all options):
+$ gr repo new new-repo --init --default-branch develop --gitignore Rust --license MIT
 ")]
     /// Create new repository
     New {
-        /// The name of the new repository
-        /// Can be either:
-        /// - a full URL, e.g. "https://github.com/user/gr.git"
-        /// - an organization and repo name, e.g. "user/gr"
-        /// - or a repo name (will be created under user) e.g. "gr"
+        /// The name of the new repository, can be either: a full URL (e.g. "https://github.com/user/gr.git"), an organization and repo name, (e.g. "user/gr") or a repo name (will be created under user) e.g. "gr".
         repository: String,
         /// The host of the server (e.g. "github.com")
         #[arg(long)]
@@ -237,6 +237,18 @@ $ gr repo new new-repo --clone --dir path/to/another
         /// The visibility of the new repo
         #[arg(long, default_value = "private")]
         visibility: Visibility,
+        /// Whether to initialize the repository with a README (GitHub, GitLab and Gitea only)
+        #[arg(long)]
+		init: bool,
+        /// The default branch to initialize with (GitLab and Gitea only)
+        #[arg(long)]
+        default_branch: Option<String>,
+        /// The gitignore to initialize with (GitHub and Gitea only)
+        #[arg(long)]
+        gitignore: Option<String>,
+        /// The license to initialize with (GitHub and Gitea only)
+        #[arg(long)]
+        license: Option<String>,
         /// Whether to open the new repository in the browser
         #[arg(long)]
 		open: bool,
