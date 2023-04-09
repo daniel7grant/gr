@@ -35,6 +35,37 @@ impl From<BitbucketPullRequestState> for PullRequestState {
     }
 }
 
+#[derive(Debug, Default, Deserialize, Serialize)]
+pub struct BitbucketUser {
+    pub uuid: String,
+    pub nickname: String,
+    pub display_name: String,
+}
+
+impl From<BitbucketUser> for User {
+    fn from(user: BitbucketUser) -> User {
+        let BitbucketUser { uuid, nickname, .. } = user;
+        User {
+            id: uuid,
+            username: nickname,
+        }
+    }
+}
+
+#[derive(Debug, Default, Deserialize, Serialize)]
+pub struct BitbucketTeam {
+    pub uuid: String,
+    pub username: String,
+    pub display_name: String,
+}
+
+impl From<BitbucketTeam> for User {
+    fn from(user: BitbucketTeam) -> User {
+        let BitbucketTeam { uuid, username, .. } = user;
+        User { id: uuid, username }
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct BitbucketApproval {
     approved: bool,
@@ -44,20 +75,6 @@ pub struct BitbucketApproval {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct BitbucketMembership {
     user: BitbucketUser,
-}
-
-#[derive(Debug, Default, Deserialize, Serialize)]
-pub struct BitbucketUser {
-    pub uuid: String,
-    pub username: String,
-    pub display_name: String,
-}
-
-impl From<BitbucketUser> for User {
-    fn from(user: BitbucketUser) -> User {
-        let BitbucketUser { uuid, username, .. } = user;
-        User { id: uuid, username }
-    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -72,9 +89,14 @@ pub struct BitbucketLink {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct BitbucketLinks {
+pub struct BitbucketRepositoryLinks {
     pub html: BitbucketLink,
     pub clone: Vec<BitbucketCloneLink>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct BitbucketPullRequestLinks {
+    pub html: BitbucketLink,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -106,8 +128,8 @@ pub struct BitbucketRepository {
     uuid: String,
     name: String,
     full_name: String,
-    links: BitbucketLinks,
-    owner: BitbucketUser,
+    links: BitbucketRepositoryLinks,
+    owner: BitbucketTeam,
     description: String,
     #[serde(with = "time::serde::iso8601")]
     created_on: OffsetDateTime,
@@ -193,7 +215,7 @@ pub struct BitbucketPullRequest {
     pub state: BitbucketPullRequestState,
     pub title: String,
     pub description: String,
-    pub links: BitbucketLinks,
+    pub links: BitbucketPullRequestLinks,
     #[serde(with = "time::serde::iso8601")]
     pub created_on: OffsetDateTime,
     #[serde(with = "time::serde::iso8601")]
@@ -405,7 +427,7 @@ impl Bitbucket {
         Ok(members
             .into_iter()
             .map(|m| m.user)
-            .filter(|u| usernames.contains(&u.username))
+            .filter(|u| usernames.contains(&u.nickname))
             .collect())
     }
 }
