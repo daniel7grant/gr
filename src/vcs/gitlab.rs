@@ -544,7 +544,7 @@ impl VersionControl for GitLab {
 
         let new_repo: GitLabRepository = self.call(
             "POST",
-            &self.get_repository_url("/forks"),
+            &self.get_repository_url("/fork"),
             Some(GitLabForkRepository {
                 name,
                 namespace_path,

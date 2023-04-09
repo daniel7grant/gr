@@ -48,23 +48,15 @@ pub struct BitbucketMembership {
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct BitbucketUser {
-    pub account_id: String,
     pub uuid: String,
-    pub nickname: String,
+    pub username: String,
     pub display_name: String,
 }
 
 impl From<BitbucketUser> for User {
     fn from(user: BitbucketUser) -> User {
-        let BitbucketUser {
-            account_id,
-            nickname,
-            ..
-        } = user;
-        User {
-            id: account_id,
-            username: nickname,
-        }
+        let BitbucketUser { uuid, username, .. } = user;
+        User { id: uuid, username }
     }
 }
 
@@ -106,15 +98,7 @@ pub struct BitbucketRevision {
 pub struct BitbucketRepositoryProject {
     uuid: String,
     key: String,
-    owner: User,
     name: String,
-    description: String,
-    is_private: bool,
-    #[serde(with = "time::serde::iso8601")]
-    created_on: OffsetDateTime,
-    #[serde(with = "time::serde::iso8601")]
-    updated_on: OffsetDateTime,
-    has_publicly_visible_repos: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -198,7 +182,8 @@ struct BitbucketForkRepositoryWorkspace {
 struct BitbucketForkRepository {
     #[serde(skip_serializing_if = "Option::is_none")]
     name: Option<String>,
-    workspace: BitbucketForkRepositoryWorkspace,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    workspace: Option<BitbucketForkRepositoryWorkspace>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -419,7 +404,7 @@ impl Bitbucket {
         Ok(members
             .into_iter()
             .map(|m| m.user)
-            .filter(|u| usernames.contains(&u.nickname))
+            .filter(|u| usernames.contains(&u.username))
             .collect())
     }
 }
@@ -566,21 +551,12 @@ impl VersionControl for Bitbucket {
     #[instrument(skip_all)]
     fn fork_repository(&self, repo: ForkRepository) -> Result<Repository> {
         let ForkRepository { name, organization } = repo;
-
-        let (user, _) = self
-            .settings
-            .auth
-            .split_once(':')
-            .wrap_err("Authentication format is invalid")?;
-        let workspace = organization.unwrap_or(user.to_string());
+        let workspace = organization.map(|slug| BitbucketForkRepositoryWorkspace { slug });
 
         let new_repo: BitbucketRepository = self.call(
             "POST",
             &self.get_repository_url("/forks"),
-            Some(BitbucketForkRepository {
-                name,
-                workspace: BitbucketForkRepositoryWorkspace { slug: workspace },
-            }),
+            Some(BitbucketForkRepository { name, workspace }),
         )?;
 
         Ok(new_repo.into())
