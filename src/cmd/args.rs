@@ -258,6 +258,9 @@ $ gr repo fork https://github.com/daniel7grant/gr organization/gr
         source: String,
         /// The target name, e.g. "name" or "org/name" (by default the same name to the current user)
         repository: Option<String>,
+        /// Whether to clone the forked repository
+        #[arg(long)]
+        clone: bool,
     },
     #[command(after_help = "Examples:
 

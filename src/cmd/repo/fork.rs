@@ -4,7 +4,7 @@ use crate::cmd::{
 };
 use eyre::{eyre, ContextCompat, Result};
 use gr_bin::{
-    git::url::parse_url,
+    git::{git::LocalRepository, url::parse_url},
     vcs::common::{init_vcs, ForkRepository, VersionControlSettings},
 };
 use tracing::instrument;
@@ -15,11 +15,13 @@ pub fn fork(args: Cli, conf: Configuration) -> Result<()> {
         command,
         auth,
         output,
+        dir,
         ..
     } = args;
     if let Commands::Repo(RepoCommands::Fork {
         source,
         repository: repository_name,
+        clone,
     }) = command
     {
         let (hostname, original) = parse_url(&source)?;
@@ -52,6 +54,14 @@ pub fn fork(args: Cli, conf: Configuration) -> Result<()> {
         let repo = vcs.fork_repository(ForkRepository { organization, name })?;
 
         repo.print(false, output.into());
+
+        let repository = LocalRepository::init(dir.clone())?;
+        if clone {
+            // If clone is given, clone it to the directory (or here)
+            repository
+                .clone(repo.ssh_url, dir.clone())
+                .or_else(|_| repository.clone(repo.https_url, dir))?;
+        }
 
         Ok(())
     } else {
