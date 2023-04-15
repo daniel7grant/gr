@@ -53,11 +53,9 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --test 'repo-github' -- --nocapture
+          args: --test '*' -- --nocapture
         env:
           RUST_BACKTRACE: 1
-          GIT_SSH_COMMAND: "ssh -vv"
-          GIT_TRACE: 1
   release:
     name: Release if we are on a tag
     runs-on: ubuntu-latest
