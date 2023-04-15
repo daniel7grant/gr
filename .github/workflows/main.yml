@@ -53,7 +53,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --test 'github_repo' -- --nocapture
+          args: --test 'repo-github' -- --nocapture
         env:
           RUST_BACKTRACE: 1
           GIT_SSH_COMMAND: "ssh -vv"
