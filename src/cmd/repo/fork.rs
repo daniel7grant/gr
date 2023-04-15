@@ -7,6 +7,7 @@ use gr_bin::{
     git::{git::LocalRepository, url::parse_url},
     vcs::common::{init_vcs, ForkRepository, VersionControlSettings},
 };
+use std::{thread::sleep, time::Duration};
 use tracing::instrument;
 
 #[instrument(skip_all, fields(command = ?args.command))]
@@ -55,9 +56,12 @@ pub fn fork(args: Cli, conf: Configuration) -> Result<()> {
 
         repo.print(false, output.into());
 
-        let repository = LocalRepository::init(dir.clone())?;
         if clone {
+            // Wait for a moment, to let the server finish the fork
+            sleep(Duration::from_millis(500));
+           
             // If clone is given, clone it to the directory (or here)
+            let repository = LocalRepository::init(dir.clone())?;
             repository
                 .clone(repo.ssh_url, dir.clone())
                 .or_else(|_| repository.clone(repo.https_url, dir))?;
