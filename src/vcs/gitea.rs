@@ -2,7 +2,7 @@
 use super::common::{
     CreatePullRequest, CreateRepository, ForkRepository, ListPullRequestFilters, PullRequest,
     PullRequestState, PullRequestStateFilter, Repository, RepositoryVisibility, User,
-    VersionControl, VersionControlSettings,
+    VersionControl, VersionControlSettings, ForkedFromRepository,
 };
 use eyre::{eyre, ContextCompat, Result};
 use native_tls::TlsConnector;
@@ -53,6 +53,8 @@ struct GiteaRepository {
     default_branch: String,
     stars_count: u32,
     forks_count: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    parent: Option<Box<GiteaRepository>>,
 }
 
 impl From<GiteaRepository> for Repository {
@@ -72,6 +74,7 @@ impl From<GiteaRepository> for Repository {
             default_branch,
             stars_count,
             forks_count,
+            parent
         } = repo;
         Repository {
             name,
@@ -92,6 +95,23 @@ impl From<GiteaRepository> for Repository {
             default_branch,
             stars_count,
             forks_count,
+            forked_from: parent.map(|r| ForkedFromRepository::from(*r)),
+        }
+    }
+}
+
+impl From<GiteaRepository> for ForkedFromRepository {
+    fn from(repo: GiteaRepository) -> ForkedFromRepository {
+        let GiteaRepository {
+            name,
+            full_name,
+            html_url,
+            ..
+        } = repo;
+        ForkedFromRepository {
+            name,
+            full_name,
+            html_url,
         }
     }
 }

@@ -55,6 +55,17 @@ fn test_repo_result(repo: Vec<String>, key: &str) -> Result<()> {
     Ok(())
 }
 
+fn test_forked_repo_result(repo: Vec<String>, key: &str) -> Result<()> {
+    let mut repo_lines = repo.iter();
+    assert!(repo_lines.next().unwrap().contains(&key));
+    assert!(repo_lines.next().unwrap().contains("forked from"));
+    assert!(repo_lines.next().unwrap().contains("0 stars, 0 forks"));
+    repo_lines.next();
+    assert!(repo_lines.next().unwrap().contains(&key));
+
+    Ok(())
+}
+
 fn test_repo() -> Result<()> {
     let key = str_rnd(12);
 
@@ -114,12 +125,12 @@ fn test_repo() -> Result<()> {
         vec!["repo", "fork", &forked_url, &second_repo, "--clone"],
         false,
     )?;
-    test_repo_result(repo, &second_repo)?;
+    test_forked_repo_result(repo, &second_repo)?;
     env::set_current_dir(&second_repo)?;
 
     // Test if the forked repo exists
     let repo = exec(gr, vec!["repo", "get"], false)?;
-    test_repo_result(repo, &second_repo)?;
+    test_forked_repo_result(repo, &second_repo)?;
 
     // Delete the repo, and test if it is actually deleted
     exec(

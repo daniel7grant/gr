@@ -87,6 +87,11 @@ impl Formatter for Repository {
     }
     fn show_normal(&self) -> String {
         let title_line = to_fixed_length(&self.full_name, TITLE_SIZE, true).bold();
+        let forked_line = if let Some(ref forked) = self.forked_from {
+            format!("{} {}\n", "forked from".dimmed(), forked.full_name)
+        } else {
+            String::new()
+        };
         let counts_line = format!(
             "{} stars, {} forks",
             self.stars_count.to_string().yellow(),
@@ -101,7 +106,7 @@ impl Formatter for Repository {
 
         format!(
             "{title_line}
-{counts_line}
+{forked_line}{counts_line}
 {description}
 {url_line}
 "

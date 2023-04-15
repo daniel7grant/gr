@@ -1,8 +1,9 @@
 // Documentation: https://docs.gitlab.com/ee/api/api_resources.html
 use super::common::{
-    CreatePullRequest, CreateRepository, ForkRepository, ListPullRequestFilters, PullRequest,
-    PullRequestState, PullRequestStateFilter, PullRequestUserFilter, Repository,
-    RepositoryVisibility, User, VersionControl, VersionControlSettings,
+    CreatePullRequest, CreateRepository, ForkRepository, ForkedFromRepository,
+    ListPullRequestFilters, PullRequest, PullRequestState, PullRequestStateFilter,
+    PullRequestUserFilter, Repository, RepositoryVisibility, User, VersionControl,
+    VersionControlSettings,
 };
 use eyre::{eyre, Result};
 use native_tls::TlsConnector;
@@ -59,6 +60,16 @@ pub enum GitLabRepositoryVisibility {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+struct GitLabForkedFromRepository {
+    id: u32,
+    name: String,
+    name_with_namespace: String,
+    path: String,
+    path_with_namespace: String,
+    web_url: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 struct GitLabRepository {
     id: u32,
     name: String,
@@ -79,6 +90,7 @@ struct GitLabRepository {
     archived: bool,
     visibility: GitLabRepositoryVisibility,
     owner: Option<GitLabUser>,
+    forked_from_project: Option<GitLabForkedFromRepository>,
 }
 
 impl From<GitLabRepository> for Repository {
@@ -98,6 +110,7 @@ impl From<GitLabRepository> for Repository {
             archived,
             visibility,
             owner,
+            forked_from_project,
             ..
         } = repo;
         Repository {
@@ -119,6 +132,23 @@ impl From<GitLabRepository> for Repository {
             stars_count: star_count,
             ssh_url: ssh_url_to_repo,
             https_url: http_url_to_repo,
+            forked_from: forked_from_project.map(|r| ForkedFromRepository::from(r)),
+        }
+    }
+}
+
+impl From<GitLabForkedFromRepository> for ForkedFromRepository {
+    fn from(repo: GitLabForkedFromRepository) -> ForkedFromRepository {
+        let GitLabForkedFromRepository {
+            name,
+            path_with_namespace,
+            web_url,
+            ..
+        } = repo;
+        ForkedFromRepository {
+            name,
+            full_name: path_with_namespace,
+            html_url: web_url,
         }
     }
 }
@@ -568,7 +598,7 @@ impl VersionControl for GitLab {
         } = repo;
         let path = match (&namespace_path, &name) {
             (Some(ns), Some(n)) => Some(format!("{ns}/{n}")),
-			(None, Some(n)) => Some(n.to_string()),
+            (None, Some(n)) => Some(n.to_string()),
             _ => None,
         };
 

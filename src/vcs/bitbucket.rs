@@ -1,8 +1,8 @@
 // Documentation: https://developer.atlassian.com/cloud/bitbucket/rest/intro/
 use super::common::{
-    CreatePullRequest, CreateRepository, ForkRepository, ListPullRequestFilters, PullRequest,
-    PullRequestState, PullRequestStateFilter, Repository, RepositoryVisibility, User,
-    VersionControl, VersionControlSettings,
+    CreatePullRequest, CreateRepository, ForkRepository, ForkedFromRepository,
+    ListPullRequestFilters, PullRequest, PullRequestState, PullRequestStateFilter, Repository,
+    RepositoryVisibility, User, VersionControl, VersionControlSettings,
 };
 use eyre::{eyre, ContextCompat, Result};
 use native_tls::TlsConnector;
@@ -89,6 +89,11 @@ pub struct BitbucketLink {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+pub struct BitbucketForkedFromRepositoryLinks {
+    pub html: BitbucketLink,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct BitbucketRepositoryLinks {
     pub html: BitbucketLink,
     pub clone: Vec<BitbucketCloneLink>,
@@ -124,6 +129,14 @@ pub struct BitbucketRepositoryProject {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+pub struct BitbucketForkedFromRepository {
+    uuid: String,
+    name: String,
+    full_name: String,
+    links: BitbucketForkedFromRepositoryLinks,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct BitbucketRepository {
     uuid: String,
     name: String,
@@ -139,6 +152,7 @@ pub struct BitbucketRepository {
     project: BitbucketRepositoryProject,
     mainbranch: BitbucketBranch,
     is_private: bool,
+    parent: Option<BitbucketForkedFromRepository>,
 }
 
 impl From<BitbucketRepository> for Repository {
@@ -153,6 +167,7 @@ impl From<BitbucketRepository> for Repository {
             updated_on,
             mainbranch,
             is_private,
+            parent,
             ..
         } = repo;
         let ssh_url = links
@@ -184,6 +199,23 @@ impl From<BitbucketRepository> for Repository {
             stars_count: 0,
             ssh_url: ssh_url.unwrap().to_owned(),
             https_url: https_url.unwrap().to_owned(),
+            forked_from: parent.map(|r| r.into()),
+        }
+    }
+}
+
+impl From<BitbucketForkedFromRepository> for ForkedFromRepository {
+    fn from(repo: BitbucketForkedFromRepository) -> ForkedFromRepository {
+        let BitbucketForkedFromRepository {
+            name,
+            links,
+            full_name,
+            ..
+        } = repo;
+        ForkedFromRepository {
+            name,
+            full_name,
+            html_url: links.html.href,
         }
     }
 }

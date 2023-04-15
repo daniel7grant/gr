@@ -1,8 +1,8 @@
 // Documentation: https://docs.github.com/en/rest/quickstart
 use super::common::{
-    CreatePullRequest, CreateRepository, ForkRepository, ListPullRequestFilters, PullRequest,
-    PullRequestState, PullRequestStateFilter, Repository, RepositoryVisibility, User,
-    VersionControl, VersionControlSettings,
+    CreatePullRequest, CreateRepository, ForkRepository, ForkedFromRepository,
+    ListPullRequestFilters, PullRequest, PullRequestState, PullRequestStateFilter, Repository,
+    RepositoryVisibility, User, VersionControl, VersionControlSettings,
 };
 use eyre::{eyre, ContextCompat, Result};
 use native_tls::TlsConnector;
@@ -46,6 +46,8 @@ struct GitHubRepository {
     forks_count: u32,
     archived: bool,
     default_branch: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    parent: Option<Box<GitHubRepository>>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -86,6 +88,7 @@ impl From<GitHubRepository> for Repository {
             forks_count,
             archived,
             default_branch,
+            parent,
         } = repo;
         Repository {
             name,
@@ -106,6 +109,23 @@ impl From<GitHubRepository> for Repository {
             default_branch,
             stars_count: stargazers_count,
             forks_count,
+            forked_from: parent.map(|r| ForkedFromRepository::from(*r)),
+        }
+    }
+}
+
+impl From<GitHubRepository> for ForkedFromRepository {
+    fn from(repo: GitHubRepository) -> ForkedFromRepository {
+        let GitHubRepository {
+            name,
+            full_name,
+            html_url,
+            ..
+        } = repo;
+        ForkedFromRepository {
+            name,
+            full_name,
+            html_url,
         }
     }
 }

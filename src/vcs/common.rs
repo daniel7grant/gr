@@ -89,6 +89,13 @@ pub enum RepositoryVisibility {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+pub struct ForkedFromRepository {
+    pub name: String,
+    pub full_name: String,
+    pub html_url: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Repository {
     pub name: String,
     pub full_name: String,
@@ -106,6 +113,7 @@ pub struct Repository {
     pub default_branch: String,
     pub forks_count: u32,
     pub stars_count: u32,
+    pub forked_from: Option<ForkedFromRepository>,
 }
 
 impl Repository {
@@ -124,10 +132,10 @@ pub struct CreateRepository {
     pub organization: Option<String>,
     pub description: Option<String>,
     pub visibility: RepositoryVisibility,
-	pub init: bool,
-	pub default_branch: Option<String>,
-	pub gitignore: Option<String>,
-	pub license: Option<String>,
+    pub init: bool,
+    pub default_branch: Option<String>,
+    pub gitignore: Option<String>,
+    pub license: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -164,7 +172,7 @@ pub trait VersionControl {
     fn get_repository(&self) -> Result<Repository>;
     fn create_repository(&self, repo: CreateRepository) -> Result<Repository>;
     fn fork_repository(&self, repo: ForkRepository) -> Result<Repository>;
-	fn delete_repository(&self) -> Result<()>;
+    fn delete_repository(&self) -> Result<()>;
 }
 
 pub fn init_vcs(
