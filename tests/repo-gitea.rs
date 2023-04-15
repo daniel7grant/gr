@@ -47,21 +47,21 @@ fn exec(cmd: &str, args: Vec<&str>, inherit: bool) -> Result<Vec<String>> {
 
 fn test_repo_result(repo: Vec<String>, key: &str) -> Result<()> {
     let mut repo_lines = repo.iter();
-    assert!(repo_lines.next().unwrap().contains(&key));
+    assert!(repo_lines.next().unwrap().contains(key));
     assert!(repo_lines.next().unwrap().contains("0 stars, 0 forks"));
     repo_lines.next();
-    assert!(repo_lines.next().unwrap().contains(&key));
+    assert!(repo_lines.next().unwrap().contains(key));
 
     Ok(())
 }
 
 fn test_forked_repo_result(repo: Vec<String>, key: &str) -> Result<()> {
     let mut repo_lines = repo.iter();
-    assert!(repo_lines.next().unwrap().contains(&key));
+    assert!(repo_lines.next().unwrap().contains(key));
     assert!(repo_lines.next().unwrap().contains("forked from"));
     assert!(repo_lines.next().unwrap().contains("0 stars, 0 forks"));
     repo_lines.next();
-    assert!(repo_lines.next().unwrap().contains(&key));
+    assert!(repo_lines.next().unwrap().contains(key));
 
     Ok(())
 }

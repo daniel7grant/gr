@@ -132,7 +132,7 @@ impl From<GitLabRepository> for Repository {
             stars_count: star_count,
             ssh_url: ssh_url_to_repo,
             https_url: http_url_to_repo,
-            forked_from: forked_from_project.map(|r| ForkedFromRepository::from(r)),
+            forked_from: forked_from_project.map(ForkedFromRepository::from),
         }
     }
 }
