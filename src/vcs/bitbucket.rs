@@ -374,8 +374,8 @@ impl Bitbucket {
                     t.len()
                 );
                 trace!("Response body: {t}.");
-                
-				// Somewhat hacky, if the response is empty, return null
+
+                // Somewhat hacky, if the response is empty, return null
                 if t.is_empty() {
                     t = "null".to_string();
                 }
@@ -594,7 +594,7 @@ impl VersionControl for Bitbucket {
 
     #[instrument(skip_all)]
     fn delete_repository(&self) -> Result<()> {
-        let _: () = self.call("DELETE", &self.get_repository_url(""), None as Option<i32>)?;
+        self.call("DELETE", &self.get_repository_url(""), None as Option<i32>)?;
 
         Ok(())
     }
