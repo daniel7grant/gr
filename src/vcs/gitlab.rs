@@ -142,6 +142,13 @@ struct GitLabForkRepository {
     name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     namespace_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    path: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct GitLabRepositoryDeleted {
+    message: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -559,6 +566,11 @@ impl VersionControl for GitLab {
             name,
             organization: namespace_path,
         } = repo;
+        let path = match (&namespace_path, &name) {
+            (Some(ns), Some(n)) => Some(format!("{ns}/{n}")),
+			(None, Some(n)) => Some(format!("{n}")),
+            _ => None,
+        };
 
         let new_repo: GitLabRepository = self.call(
             "POST",
@@ -566,9 +578,18 @@ impl VersionControl for GitLab {
             Some(GitLabForkRepository {
                 name,
                 namespace_path,
+                path,
             }),
         )?;
 
         Ok(new_repo.into())
+    }
+
+    #[instrument(skip_all)]
+    fn delete_repository(&self) -> Result<()> {
+        let _: GitLabRepositoryDeleted =
+            self.call("DELETE", &self.get_repository_url(""), None as Option<i32>)?;
+
+        Ok(())
     }
 }

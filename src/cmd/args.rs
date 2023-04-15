@@ -295,6 +295,17 @@ $ gr repo open
 ")]
     /// Open the repository in the browser
     Open {},
+    #[command(hide = true, after_help = "Examples:
+
+Delete the current repository:
+$ gr repo delete
+")]
+	/// Delete the current repository
+	Delete {
+		/// Delete the repository FOREVER without interaction
+		#[arg(long = "yes-delete-permanently")]
+		force: bool,
+	},
 }
 
 #[derive(Debug, Subcommand)]

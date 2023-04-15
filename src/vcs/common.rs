@@ -164,6 +164,7 @@ pub trait VersionControl {
     fn get_repository(&self) -> Result<Repository>;
     fn create_repository(&self, repo: CreateRepository) -> Result<Repository>;
     fn fork_repository(&self, repo: ForkRepository) -> Result<Repository>;
+	fn delete_repository(&self) -> Result<()>;
 }
 
 pub fn init_vcs(

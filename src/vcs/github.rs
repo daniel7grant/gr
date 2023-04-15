@@ -297,7 +297,7 @@ impl GitHub {
         match result {
             Ok(result) => {
                 let status = result.status();
-                let t = result.into_string()?;
+                let mut t = result.into_string()?;
 
                 info!(
                     "Received response with response code {} with body size {}.",
@@ -305,6 +305,12 @@ impl GitHub {
                     t.len()
                 );
                 trace!("Response body: {t}.");
+
+                // Somewhat hacky, if the response is empty, return null
+                if t.is_empty() {
+                    t = "null".to_string();
+                }
+
                 let t: T = serde_json::from_str(&t)?;
                 Ok(t)
             }
@@ -515,5 +521,12 @@ impl VersionControl for GitHub {
         )?;
 
         Ok(new_repo.into())
+    }
+
+    #[instrument(skip_all)]
+    fn delete_repository(&self) -> Result<()> {
+        let _: () = self.call("DELETE", &self.get_repository_url(""), None as Option<i32>)?;
+
+        Ok(())
     }
 }

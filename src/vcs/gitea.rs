@@ -561,4 +561,11 @@ impl VersionControl for Gitea {
 
         Ok(new_repo.into())
     }
+
+    #[instrument(skip_all)]
+    fn delete_repository(&self) -> Result<()> {
+        let _: () = self.call("DELETE", &self.get_repository_url(""), None as Option<i32>)?;
+
+        Ok(())
+    }
 }
