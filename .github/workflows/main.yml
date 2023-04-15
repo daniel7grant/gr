@@ -35,6 +35,11 @@ jobs:
         with:
           command: clippy
           args: -- -Dwarnings
+      - name: Install nextest for testing
+        uses: actions-rs/install@v1
+        with:
+          crate: cargo-nextest
+          use-tool-cache: true
       - name: Setup configuration files
         run: |
           git config --global user.email "gr-test@d7gr.net"
@@ -52,8 +57,8 @@ jobs:
       - name: Run integration tests
         uses: actions-rs/cargo@v1
         with:
-          command: test
-          args: --test '*' -- --nocapture
+          command: nextest
+          args: run
         env:
           RUST_BACKTRACE: 1
   release:
