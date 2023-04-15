@@ -568,7 +568,7 @@ impl VersionControl for GitLab {
         } = repo;
         let path = match (&namespace_path, &name) {
             (Some(ns), Some(n)) => Some(format!("{ns}/{n}")),
-			(None, Some(n)) => Some(format!("{n}")),
+			(None, Some(n)) => Some(n.to_string()),
             _ => None,
         };
 

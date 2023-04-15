@@ -46,9 +46,6 @@ fn exec(cmd: &str, args: Vec<&str>, inherit: bool) -> Result<Vec<String>> {
 }
 
 fn test_repo_result(repo: Vec<String>, key: &str) -> Result<()> {
-    dbg!(&key);
-    dbg!(&repo);
-
     let mut repo_lines = repo.iter();
     assert!(repo_lines.next().unwrap().contains(&key));
     assert!(repo_lines.next().unwrap().contains("0 stars, 0 forks"));
