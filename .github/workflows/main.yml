@@ -36,7 +36,7 @@ jobs:
           command: clippy
           args: -- -Dwarnings
       - name: Install nextest for testing
-        uses: actions-rs/install@v1
+        uses: actions-rs/install@v0.1
         with:
           crate: cargo-nextest
           use-tool-cache: true
