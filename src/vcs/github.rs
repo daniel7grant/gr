@@ -213,6 +213,8 @@ pub struct GitHubCreatePullRequest {
     pub body: String,
     pub head: String,
     pub base: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub head_repo: Option<String>,
 }
 
 impl From<CreatePullRequest> for GitHubCreatePullRequest {
@@ -230,6 +232,7 @@ impl From<CreatePullRequest> for GitHubCreatePullRequest {
             head: source,
             // We are never supposed to fallback to this, but handle it
             base: destination.unwrap_or("master".to_string()),
+            head_repo: None,
         }
     }
 }
@@ -390,15 +393,23 @@ impl VersionControl for GitHub {
             let GitHubRepository { default_branch, .. } = self.get_repository_data()?;
             pr.target = Some(default_branch);
         }
-        let new_pr: GitHubPullRequest = self.call(
-            "POST",
-            &self.get_repository_url("/pulls"),
-            Some(GitHubCreatePullRequest::from(pr)),
-        )?;
+
+        let is_fork = pr.fork;
+        let mut url = self.get_repository_url("/pulls");
+        let mut github_pr = GitHubCreatePullRequest::from(pr);
+        if is_fork {
+            let repo = self.get_repository()?;
+            if let Some(forked) = repo.forked_from {
+                url = format!("/repos/{}/pulls", forked.full_name);
+                github_pr.head_repo = Some(repo.full_name);
+            }
+        }
+
+        let new_pr: GitHubPullRequest = self.call("POST", &url, Some(github_pr))?;
 
         let _: GitHubPullRequest = self.call(
             "POST",
-            &self.get_repository_url(&format!("/pulls/{}/requested_reviewers", new_pr.number)),
+            &format!("{}/{}/requested_reviewers", url, new_pr.number),
             Some(GitHubCreatePullRequestReviewers { reviewers }),
         )?;
 

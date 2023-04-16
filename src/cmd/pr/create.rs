@@ -28,6 +28,7 @@ pub fn create(args: Cli, mut conf: Configuration) -> Result<()> {
         open,
         reviewers,
         merge,
+        fork,
     }) = command
     {
         let repository = LocalRepository::init(dir)?;
@@ -106,6 +107,7 @@ pub fn create(args: Cli, mut conf: Configuration) -> Result<()> {
             target,
             close_source_branch: delete,
             reviewers: reviewers.unwrap_or_default(),
+            fork,
         })?;
 
         pr.print(open, output.into());

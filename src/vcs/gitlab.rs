@@ -265,6 +265,8 @@ pub struct GitLabCreatePullRequest {
     pub target_branch: String,
     pub remove_source_branch: bool,
     pub reviewer_ids: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_project_id: Option<u32>,
 }
 
 impl From<CreatePullRequest> for GitLabCreatePullRequest {
@@ -276,6 +278,7 @@ impl From<CreatePullRequest> for GitLabCreatePullRequest {
             target,
             close_source_branch,
             reviewers,
+            fork: _,
         } = pr;
         Self {
             title,
@@ -285,6 +288,7 @@ impl From<CreatePullRequest> for GitLabCreatePullRequest {
             target_branch: target.unwrap_or("master".to_string()),
             remove_source_branch: close_source_branch,
             reviewer_ids: reviewers,
+            target_project_id: None,
         }
     }
 }
@@ -454,10 +458,20 @@ impl VersionControl for GitLab {
             info!("Using {default_branch} as target branch.");
             pr.target = Some(default_branch);
         }
+
+        let is_fork = pr.fork;
+        let mut gitlab_pr = GitLabCreatePullRequest::from(pr);
+        if is_fork {
+            let repo = self.get_repository_data()?;
+            if let Some(forked) = repo.forked_from_project {
+                gitlab_pr.target_project_id = Some(forked.id);
+            }
+        };
+
         let new_pr: GitLabPullRequest = self.call(
             "POST",
             &self.get_repository_url("/merge_requests"),
-            Some(GitLabCreatePullRequest::from(pr)),
+            Some(gitlab_pr),
         )?;
 
         Ok(new_pr.into())

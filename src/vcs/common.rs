@@ -56,6 +56,7 @@ pub struct CreatePullRequest {
     pub target: Option<String>,
     pub close_source_branch: bool,
     pub reviewers: Vec<String>,
+    pub fork: bool,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]

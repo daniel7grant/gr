@@ -94,7 +94,10 @@ Create a pull request to merge into a different branch:
 $ gr pr create -m 'Do things' --target staging
 
 Create a pull request and merge it immediately (for fix branches):
-$ gr pr create -m 'Fix things' --merge --delete")]
+$ gr pr create -m 'Fix things' --merge --delete
+
+Create a pull request to the forked repository:
+$ gr pr create -m 'Fix things for you' --fork")]
     /// Create pull request for the current branch
     ///
     /// The only required field is the title (--message / -m), other fields will be filled by sane defaults:
@@ -121,6 +124,9 @@ $ gr pr create -m 'Fix things' --merge --delete")]
         /// Merge the pull request instantly (good for hotfixes)
         #[arg(long)]
         merge: bool,
+        /// Create the pull request for the fork
+        #[arg(long)]
+        fork: bool,
     },
     #[command(after_help = "Examples:
 

@@ -1,8 +1,8 @@
 // Documentation: https://codeberg.org/api/swagger
 use super::common::{
-    CreatePullRequest, CreateRepository, ForkRepository, ListPullRequestFilters, PullRequest,
-    PullRequestState, PullRequestStateFilter, Repository, RepositoryVisibility, User,
-    VersionControl, VersionControlSettings, ForkedFromRepository,
+    CreatePullRequest, CreateRepository, ForkRepository, ForkedFromRepository,
+    ListPullRequestFilters, PullRequest, PullRequestState, PullRequestStateFilter, Repository,
+    RepositoryVisibility, User, VersionControl, VersionControlSettings,
 };
 use eyre::{eyre, ContextCompat, Result};
 use native_tls::TlsConnector;
@@ -74,7 +74,7 @@ impl From<GiteaRepository> for Repository {
             default_branch,
             stars_count,
             forks_count,
-            parent
+            parent,
         } = repo;
         Repository {
             name,
@@ -435,15 +435,29 @@ impl VersionControl for Gitea {
             pr.target = Some(default_branch);
         }
 
-        let new_pr: GiteaPullRequest = self.call(
-            "POST",
-            &self.get_repository_url("/pulls"),
-            Some(GiteaCreatePullRequest::from(pr)),
-        )?;
+        let is_fork = pr.fork;
+        let mut url = self.get_repository_url("/pulls");
+        let mut gitea_pr = GiteaCreatePullRequest::from(pr);
+        if is_fork {
+            let repo = self.get_repository()?;
+            if let Some(forked) = repo.forked_from {
+                url = format!("/repos/{}/pulls", forked.full_name);
+
+                // For some reason Gitea only works with specifying head to username:branch
+                let namespace = repo
+                    .full_name
+                    .split('/')
+                    .next()
+                    .wrap_err(eyre!("Invalid repository name {}.", repo.full_name))?;
+                gitea_pr.head = format!("{}:{}", namespace, gitea_pr.head);
+            }
+        }
+
+        let new_pr: GiteaPullRequest = self.call("POST", &url, Some(gitea_pr))?;
 
         let _: Vec<GiteaPullRequestReview> = self.call(
             "POST",
-            &self.get_repository_url(&format!("/pulls/{}/requested_reviewers", new_pr.number)),
+            &format!("{}/{}/requested_reviewers", url, new_pr.number),
             Some(GiteaCreatePullRequestReviewers { reviewers }),
         )?;
 

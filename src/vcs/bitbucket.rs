@@ -115,10 +115,17 @@ pub struct BitbucketBranch {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+pub struct BitbucketRevisionRepository {
+    pub full_name: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct BitbucketRevision {
     pub branch: BitbucketBranch,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub commit: Option<BitbucketCommit>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub repository: Option<BitbucketRevisionRepository>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -322,6 +329,7 @@ impl From<CreatePullRequest> for BitbucketCreatePullRequest {
             target: destination,
             close_source_branch,
             reviewers,
+            ..
         } = pr;
         Self {
             title,
@@ -329,10 +337,12 @@ impl From<CreatePullRequest> for BitbucketCreatePullRequest {
             source: BitbucketRevision {
                 branch: BitbucketBranch { name: source },
                 commit: None,
+                repository: None,
             },
             destination: destination.map(|name| BitbucketRevision {
                 branch: BitbucketBranch { name },
                 commit: None,
+                repository: None,
             }),
             close_source_branch,
             reviewers: reviewers
@@ -498,11 +508,24 @@ impl VersionControl for Bitbucket {
     fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {
         let reviewers = self.get_workspace_users(pr.reviewers.clone())?;
         pr.reviewers = reviewers.into_iter().map(|r| r.uuid).collect();
-        let new_pr: BitbucketPullRequest = self.call(
-            "POST",
-            &self.get_repository_url("/pullrequests"),
-            Some(BitbucketCreatePullRequest::from(pr)),
-        )?;
+
+        let is_fork = pr.fork;
+        let mut url = self.get_repository_url("/pullrequests");
+        let mut bitbucket_pr = BitbucketCreatePullRequest::from(pr);
+        if is_fork {
+            let repo = self.get_repository()?;
+            if let Some(forked) = repo.forked_from {
+                url = format!("/repositories/{}/pullrequests", forked.full_name);
+                bitbucket_pr.source = BitbucketRevision {
+                    repository: Some(BitbucketRevisionRepository {
+                        full_name: repo.full_name,
+                    }),
+                    ..bitbucket_pr.source
+                }
+            }
+        }
+
+        let new_pr: BitbucketPullRequest = self.call("POST", &url, Some(bitbucket_pr))?;
 
         Ok(new_pr.into())
     }
