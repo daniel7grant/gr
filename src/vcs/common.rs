@@ -56,7 +56,6 @@ pub struct CreatePullRequest {
     pub target: Option<String>,
     pub close_source_branch: bool,
     pub reviewers: Vec<String>,
-    pub fork: bool,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]
@@ -150,6 +149,7 @@ pub struct VersionControlSettings {
     pub auth: String,
     pub vcs_type: Option<String>,
     pub default_branch: Option<String>,
+    pub fork: bool,
 }
 pub trait VersionControl {
     fn init(hostname: String, repo: String, settings: VersionControlSettings) -> Self

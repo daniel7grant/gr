@@ -1,6 +1,6 @@
 use crate::cmd::{
     args::{Cli, Commands, RepoCommands},
-    config::Configuration,
+    config::{Configuration, RepositoryConfig},
 };
 use eyre::{eyre, ContextCompat, Result};
 use gr_bin::{
@@ -11,7 +11,7 @@ use std::{thread::sleep, time::Duration};
 use tracing::instrument;
 
 #[instrument(skip_all, fields(command = ?args.command))]
-pub fn fork(args: Cli, conf: Configuration) -> Result<()> {
+pub fn fork(args: Cli, mut conf: Configuration) -> Result<()> {
     let Cli {
         command,
         auth,
@@ -51,7 +51,7 @@ pub fn fork(args: Cli, conf: Configuration) -> Result<()> {
             })
             .unwrap_or((None, None));
 
-        let vcs = init_vcs(hostname, original, settings)?;
+        let vcs = init_vcs(hostname.clone(), original.clone(), settings)?;
         let repo = vcs.fork_repository(ForkRepository { organization, name })?;
 
         repo.print(false, output.into());
@@ -59,13 +59,25 @@ pub fn fork(args: Cli, conf: Configuration) -> Result<()> {
         if clone {
             // Wait for a moment, to let the server finish the fork
             sleep(Duration::from_millis(500));
-           
+
             // If clone is given, clone it to the directory (or here)
             let repository = LocalRepository::init(dir.clone())?;
             repository
                 .clone(repo.ssh_url, dir.clone())
                 .or_else(|_| repository.clone(repo.https_url, dir))?;
         }
+
+        // Update configuration with setting up if it is forked
+        conf.vcs.entry(hostname).and_modify(|host| {
+            host.repositories
+                .entry(original)
+                .and_modify(|r| r.fork = repo.forked_from.is_some())
+                .or_insert(RepositoryConfig {
+                    fork: repo.forked_from.is_some(),
+                    ..Default::default()
+                });
+        });
+        conf.save()?;
 
         Ok(())
     } else {

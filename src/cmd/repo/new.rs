@@ -63,7 +63,7 @@ pub fn new(args: Cli, mut conf: Configuration) -> Result<()> {
         let settings = VersionControlSettings {
             auth,
             vcs_type,
-            default_branch: None,
+            ..Default::default()
         };
 
         // Create the new repository

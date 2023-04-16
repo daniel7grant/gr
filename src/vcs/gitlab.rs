@@ -278,7 +278,6 @@ impl From<CreatePullRequest> for GitLabCreatePullRequest {
             target,
             close_source_branch,
             reviewers,
-            fork: _,
         } = pr;
         Self {
             title,
@@ -459,9 +458,8 @@ impl VersionControl for GitLab {
             pr.target = Some(default_branch);
         }
 
-        let is_fork = pr.fork;
         let mut gitlab_pr = GitLabCreatePullRequest::from(pr);
-        if is_fork {
+        if self.settings.fork {
             let repo = self.get_repository_data()?;
             if let Some(forked) = repo.forked_from_project {
                 gitlab_pr.target_project_id = Some(forked.id);

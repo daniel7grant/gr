@@ -509,10 +509,9 @@ impl VersionControl for Bitbucket {
         let reviewers = self.get_workspace_users(pr.reviewers.clone())?;
         pr.reviewers = reviewers.into_iter().map(|r| r.uuid).collect();
 
-        let is_fork = pr.fork;
         let mut url = self.get_repository_url("/pullrequests");
         let mut bitbucket_pr = BitbucketCreatePullRequest::from(pr);
-        if is_fork {
+        if self.settings.fork {
             let repo = self.get_repository()?;
             if let Some(forked) = repo.forked_from {
                 url = format!("/repositories/{}/pullrequests", forked.full_name);

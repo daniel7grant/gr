@@ -435,10 +435,9 @@ impl VersionControl for Gitea {
             pr.target = Some(default_branch);
         }
 
-        let is_fork = pr.fork;
         let mut url = self.get_repository_url("/pulls");
         let mut gitea_pr = GiteaCreatePullRequest::from(pr);
-        if is_fork {
+        if self.settings.fork {
             let repo = self.get_repository()?;
             if let Some(forked) = repo.forked_from {
                 url = format!("/repos/{}/pulls", forked.full_name);
