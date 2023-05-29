@@ -144,7 +144,7 @@ pub struct ForkRepository {
     pub organization: Option<String>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct VersionControlSettings {
     pub auth: String,
     pub vcs_type: Option<String>,

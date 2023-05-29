@@ -51,14 +51,18 @@ pub fn fork(args: Cli, mut conf: Configuration) -> Result<()> {
             })
             .unwrap_or((None, None));
 
-        let vcs = init_vcs(hostname.clone(), original.clone(), settings)?;
+        let vcs = init_vcs(hostname.clone(), original.clone(), settings.clone())?;
         let repo = vcs.fork_repository(ForkRepository { organization, name })?;
 
         repo.print(false, output.into());
 
+        let vcs = init_vcs(hostname.clone(), original.clone(), settings)?;
+
         if clone {
-            // Wait for a moment, to let the server finish the fork
-            sleep(Duration::from_millis(500));
+            // Wait until we have our repository, to let the server finish the fork
+            while let Err(_) = vcs.get_repository() {
+                sleep(Duration::from_millis(200));
+            }
 
             // If clone is given, clone it to the directory (or here)
             let repository = LocalRepository::init(dir.clone())?;
