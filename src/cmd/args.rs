@@ -1,6 +1,7 @@
 use clap::{ArgAction, Command, CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::{generate, Generator, Shell};
 use gr_bin::formatters::formatter::FormatterType;
+use gr_bin::vcs::common::RepositoryVisibility;
 use std::io;
 use std::process;
 
@@ -40,6 +41,27 @@ impl From<OutputType> for FormatterType {
         match val {
             OutputType::Normal => FormatterType::Normal,
             OutputType::Json => FormatterType::Json,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Default)]
+pub enum Visibility {
+    /// Repo can be visible by anyone (default)
+    #[default]
+    Public,
+    /// Repo can only be visible by you
+    Private,
+    /// Repo can only be visible by logged in users (GitLab only)
+    Internal,
+}
+
+impl From<Visibility> for RepositoryVisibility {
+    fn from(val: Visibility) -> Self {
+        match val {
+            Visibility::Public => RepositoryVisibility::Public,
+            Visibility::Private => RepositoryVisibility::Private,
+            Visibility::Internal => RepositoryVisibility::Internal,
         }
     }
 }
@@ -169,6 +191,127 @@ $ gr pr decline")]
 }
 
 #[derive(Debug, Subcommand)]
+#[command(after_help = "Examples:
+
+Create new repository:
+$ gr repo new new-repo
+
+Fork a repository:
+$ gr repo fork https://github.com/daniel7grant/gr
+
+Get information about the current repository:
+$ gr repo get
+")]
+pub enum RepoCommands {
+    #[command(alias = "create")]
+    #[command(after_help = "Examples:
+
+Create new repository (and push the current dir if it has a git repository):
+$ gr repo new new-repo
+
+Create new repository for a specific remote:
+$ gr repo new new-repo --host github.com
+
+Create new repo and clone it immediately:
+$ gr repo new new-repo --clone
+
+Create new repo and clone somewhere else:
+$ gr repo new new-repo --clone --dir path/to/another
+
+Create new repository and initialize with (all options):
+$ gr repo new new-repo --init --default-branch develop --gitignore Rust --license MIT
+")]
+    /// Create new repository
+    New {
+        /// The name of the new repository, can be either: a full URL (e.g. "https://github.com/user/gr.git"), an organization and repo name, (e.g. "user/gr") or a repo name (will be created under user) e.g. "gr".
+        repository: String,
+        /// The host of the server (e.g. "github.com")
+        #[arg(long)]
+        host: Option<String>,
+        /// Whether to clone the new repository
+        #[arg(long)]
+        clone: bool,
+        /// The description of the new repo
+        #[arg(short, long)]
+        description: Option<String>,
+        /// The visibility of the new repo
+        #[arg(long, default_value = "private")]
+        visibility: Visibility,
+        /// Whether to initialize the repository with a README (GitHub, GitLab and Gitea only)
+        #[arg(long)]
+        init: bool,
+        /// The default branch to initialize with (GitLab and Gitea only)
+        #[arg(long)]
+        default_branch: Option<String>,
+        /// The gitignore to initialize with (GitHub and Gitea only)
+        #[arg(long)]
+        gitignore: Option<String>,
+        /// The license to initialize with (GitHub and Gitea only)
+        #[arg(long)]
+        license: Option<String>,
+        /// Whether to open the new repository in the browser
+        #[arg(long)]
+        open: bool,
+    },
+    #[command(after_help = "Examples:
+    
+Fork an existing repository:
+$ gr repo fork https://github.com/daniel7grant/gr
+
+Fork an existing repository to a different name:
+$ gr repo fork https://github.com/daniel7grant/gr gr_forked
+
+Fork an existing repository to a different organization:
+$ gr repo fork https://github.com/daniel7grant/gr organization/gr
+")]
+    /// Fork existing repository
+    Fork {
+        /// The source repository to fork from
+        source: String,
+        /// The target name, e.g. "name" or "org/name" (by default the same name to the current user)
+        repository: Option<String>,
+        /// Whether to clone the forked repository
+        #[arg(long)]
+        clone: bool,
+    },
+    #[command(after_help = "Examples:
+
+Get the repository information in the current directory:
+$ gr repo get
+
+Open repository in the browser:
+$ gr repo get --open
+")]
+    /// Get the open repository
+    Get {
+        /// Open the repository in the browser
+        #[arg(long)]
+        open: bool,
+    },
+    #[command(after_help = "Examples:
+
+Open repository in the browser:
+$ gr repo open
+")]
+    /// Open the repository in the browser
+    Open {},
+    #[command(
+        hide = true,
+        after_help = "Examples:
+
+Delete the current repository:
+$ gr repo delete
+"
+    )]
+    /// Delete the current repository
+    Delete {
+        /// Delete the repository FOREVER without interaction
+        #[arg(long = "yes-delete-permanently")]
+        force: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
 pub enum Commands {
     #[command(after_help = "Examples:
 
@@ -194,9 +337,12 @@ $ gr login git.example.org --type gitlab")]
         #[arg(long)]
         token: Option<String>,
     },
-    /// Interact with pull requests
+    /// Open, list and merge pull requests
     #[command(subcommand)]
     Pr(PrCommands),
+    /// Fork or create repositories
+    #[command(subcommand)]
+    Repo(RepoCommands),
     /// Generate tab completion to shell
     Completion { shell: Shell },
 }

@@ -4,6 +4,8 @@
 
 -   Allow type to be defined at login
 -   Add Gitea integration
+-   Allow repository creation and forking with repo subcommand
+-   Add hidden repository delete command to repo
 
 ## [0.1.5] - 2023-03-22
 

@@ -1,7 +1,8 @@
 // Documentation: https://codeberg.org/api/swagger
 use super::common::{
-    CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
-    PullRequestStateFilter, User, VersionControl, VersionControlSettings,
+    CreatePullRequest, CreateRepository, ForkRepository, ForkedFromRepository,
+    ListPullRequestFilters, PullRequest, PullRequestState, PullRequestStateFilter, Repository,
+    RepositoryVisibility, User, VersionControl, VersionControlSettings,
 };
 use eyre::{eyre, ContextCompat, Result};
 use native_tls::TlsConnector;
@@ -41,6 +42,8 @@ struct GiteaRepository {
     private: bool,
     owner: GiteaUser,
     html_url: String,
+    ssh_url: String,
+    clone_url: String,
     description: Option<String>,
     #[serde(with = "time::serde::iso8601")]
     created_at: OffsetDateTime,
@@ -48,6 +51,92 @@ struct GiteaRepository {
     updated_at: OffsetDateTime,
     archived: bool,
     default_branch: String,
+    stars_count: u32,
+    forks_count: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    parent: Option<Box<GiteaRepository>>,
+}
+
+impl From<GiteaRepository> for Repository {
+    fn from(repo: GiteaRepository) -> Repository {
+        let GiteaRepository {
+            name,
+            full_name,
+            private,
+            owner,
+            html_url,
+            ssh_url,
+            clone_url,
+            description,
+            created_at,
+            updated_at,
+            archived,
+            default_branch,
+            stars_count,
+            forks_count,
+            parent,
+        } = repo;
+        Repository {
+            name,
+            full_name,
+            owner: Some(owner.into()),
+            visibility: if private {
+                RepositoryVisibility::Private
+            } else {
+                RepositoryVisibility::Public
+            },
+            html_url,
+            ssh_url,
+            https_url: clone_url,
+            description: description.unwrap_or_default(),
+            created_at,
+            updated_at,
+            archived,
+            default_branch,
+            stars_count,
+            forks_count,
+            forked_from: parent.map(|r| ForkedFromRepository::from(*r)),
+        }
+    }
+}
+
+impl From<GiteaRepository> for ForkedFromRepository {
+    fn from(repo: GiteaRepository) -> ForkedFromRepository {
+        let GiteaRepository {
+            name,
+            full_name,
+            html_url,
+            ..
+        } = repo;
+        ForkedFromRepository {
+            name,
+            full_name,
+            html_url,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Default)]
+struct GiteaCreateRepository {
+    name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
+    private: bool,
+    auto_init: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    default_branch: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    license: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    gitignores: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct GiteaForkRepository {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    organization: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -346,15 +435,28 @@ impl VersionControl for Gitea {
             pr.target = Some(default_branch);
         }
 
-        let new_pr: GiteaPullRequest = self.call(
-            "POST",
-            &self.get_repository_url("/pulls"),
-            Some(GiteaCreatePullRequest::from(pr)),
-        )?;
+        let mut url = self.get_repository_url("/pulls");
+        let mut gitea_pr = GiteaCreatePullRequest::from(pr);
+        if self.settings.fork {
+            let repo = self.get_repository()?;
+            if let Some(forked) = repo.forked_from {
+                url = format!("/repos/{}/pulls", forked.full_name);
+
+                // For some reason Gitea only works with specifying head to username:branch
+                let namespace = repo
+                    .full_name
+                    .split('/')
+                    .next()
+                    .wrap_err(eyre!("Invalid repository name {}.", repo.full_name))?;
+                gitea_pr.head = format!("{}:{}", namespace, gitea_pr.head);
+            }
+        }
+
+        let new_pr: GiteaPullRequest = self.call("POST", &url, Some(gitea_pr))?;
 
         let _: Vec<GiteaPullRequestReview> = self.call(
             "POST",
-            &self.get_repository_url(&format!("/pulls/{}/requested_reviewers", new_pr.number)),
+            &format!("{}/{}/requested_reviewers", url, new_pr.number),
             Some(GiteaCreatePullRequestReviewers { reviewers }),
         )?;
 
@@ -375,7 +477,7 @@ impl VersionControl for Gitea {
     #[instrument(skip(self))]
     fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest> {
         let prs: Vec<GiteaPullRequest> =
-            self.call_paginated(&self.get_repository_url(&format!("/pulls")), "&state=all")?;
+            self.call_paginated(&self.get_repository_url("/pulls"), "&state=all")?;
 
         prs.into_iter()
             .find(|pr| pr.head.branch == branch)
@@ -432,7 +534,7 @@ impl VersionControl for Gitea {
 
     #[instrument(skip(self))]
     fn merge_pr(&self, id: u32, _: bool) -> Result<PullRequest> {
-        let _: () = self.call(
+        self.call(
             "POST",
             &self.get_repository_url(&format!("/pulls/{id}/merge")),
             Some(GiteaMergePullRequest {
@@ -441,5 +543,62 @@ impl VersionControl for Gitea {
         )?;
 
         self.get_pr_by_id(id)
+    }
+
+    #[instrument(skip_all)]
+    fn get_repository(&self) -> Result<Repository> {
+        let repo = self.get_repository_data()?;
+
+        Ok(repo.into())
+    }
+
+    #[instrument(skip_all)]
+    fn create_repository(&self, repo: CreateRepository) -> Result<Repository> {
+        let CreateRepository {
+            name,
+            description,
+            visibility,
+            organization,
+            init,
+            default_branch,
+            gitignore,
+            license,
+        } = repo;
+        let create_repo: GiteaCreateRepository = GiteaCreateRepository {
+            name,
+            description,
+            private: visibility != RepositoryVisibility::Public,
+            auto_init: init,
+            default_branch,
+            gitignores: gitignore,
+            license,
+        };
+        let new_repo: GiteaRepository = if let Some(org) = organization {
+            self.call("POST", &format!("/orgs/{org}/repos"), Some(create_repo))
+        } else {
+            self.call("POST", "/user/repos", Some(create_repo))
+        }?;
+
+        Ok(new_repo.into())
+    }
+
+    #[instrument(skip_all)]
+    fn fork_repository(&self, repo: ForkRepository) -> Result<Repository> {
+        let ForkRepository { name, organization } = repo;
+
+        let new_repo: GiteaRepository = self.call(
+            "POST",
+            &self.get_repository_url("/forks"),
+            Some(GiteaForkRepository { organization, name }),
+        )?;
+
+        Ok(new_repo.into())
+    }
+
+    #[instrument(skip_all)]
+    fn delete_repository(&self) -> Result<()> {
+        self.call("DELETE", &self.get_repository_url(""), None as Option<i32>)?;
+
+        Ok(())
     }
 }

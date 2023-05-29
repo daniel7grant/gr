@@ -94,9 +94,9 @@ fn test_pr() -> Result<()> {
     let no_pr = exec(gr, vec!["pr", "get"], false);
     assert!(no_pr.is_err());
     if let Err(err) = no_pr {
-        assert!(err.to_string().contains(&format!(
-            "Pull request on branch {pr_branch} not found."
-        )));
+        assert!(err
+            .to_string()
+            .contains(&format!("Pull request on branch {pr_branch} not found.")));
     }
 
     // Create the PR

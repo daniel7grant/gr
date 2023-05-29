@@ -81,18 +81,86 @@ pub struct ListPullRequestFilters {
     pub state: PullRequestStateFilter,
 }
 
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub enum RepositoryVisibility {
+    Public,
+    Internal,
+    Private,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ForkedFromRepository {
+    pub name: String,
+    pub full_name: String,
+    pub html_url: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Repository {
+    pub name: String,
+    pub full_name: String,
+    pub owner: Option<User>,
+    pub html_url: String,
+    pub ssh_url: String,
+    pub https_url: String,
+    pub description: String,
+    #[serde(with = "time::serde::iso8601")]
+    pub created_at: OffsetDateTime,
+    #[serde(with = "time::serde::iso8601")]
+    pub updated_at: OffsetDateTime,
+    pub visibility: RepositoryVisibility,
+    pub archived: bool,
+    pub default_branch: String,
+    pub forks_count: u32,
+    pub stars_count: u32,
+    pub forked_from: Option<ForkedFromRepository>,
+}
+
+impl Repository {
+    pub fn print(&self, in_browser: bool, formatter_type: FormatterType) {
+        // Open in browser if open is true
+        if in_browser && open_in_browser(&self.html_url).is_ok() {
+            return;
+        }
+        print!("{}", self.show(formatter_type));
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct CreateRepository {
+    pub name: String,
+    pub organization: Option<String>,
+    pub description: Option<String>,
+    pub visibility: RepositoryVisibility,
+    pub init: bool,
+    pub default_branch: Option<String>,
+    pub gitignore: Option<String>,
+    pub license: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ForkRepository {
+    pub name: Option<String>,
+    pub organization: Option<String>,
+}
+
 #[derive(Debug, Default)]
 pub struct VersionControlSettings {
     pub auth: String,
     pub vcs_type: Option<String>,
     pub default_branch: Option<String>,
+    pub fork: bool,
 }
 pub trait VersionControl {
     fn init(hostname: String, repo: String, settings: VersionControlSettings) -> Self
     where
         Self: Sized;
+
+    // Login
     fn login_url(&self) -> String;
     fn validate_token(&self, token: &str) -> Result<()>;
+
+    // Pull requests
     fn create_pr(&self, pr: CreatePullRequest) -> Result<PullRequest>;
     fn get_pr_by_id(&self, id: u32) -> Result<PullRequest>;
     fn get_pr_by_branch(&self, branch: &str) -> Result<PullRequest>;
@@ -100,6 +168,12 @@ pub trait VersionControl {
     fn approve_pr(&self, id: u32) -> Result<()>;
     fn close_pr(&self, id: u32) -> Result<PullRequest>;
     fn merge_pr(&self, id: u32, delete_source_branch: bool) -> Result<PullRequest>;
+
+    // Repositories
+    fn get_repository(&self) -> Result<Repository>;
+    fn create_repository(&self, repo: CreateRepository) -> Result<Repository>;
+    fn fork_repository(&self, repo: ForkRepository) -> Result<Repository>;
+    fn delete_repository(&self) -> Result<()>;
 }
 
 pub fn init_vcs(

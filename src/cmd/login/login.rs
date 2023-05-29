@@ -89,7 +89,7 @@ pub fn login(args: Cli, mut conf: Configuration) -> Result<()> {
                         })
                         .or_insert(RepositoryConfig {
                             auth: Some(token),
-                            default_branch: None,
+                            ..Default::default()
                         });
                 });
             }

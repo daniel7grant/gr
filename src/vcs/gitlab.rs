@@ -1,7 +1,9 @@
 // Documentation: https://docs.gitlab.com/ee/api/api_resources.html
 use super::common::{
-    CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
-    PullRequestStateFilter, PullRequestUserFilter, User, VersionControl, VersionControlSettings,
+    CreatePullRequest, CreateRepository, ForkRepository, ForkedFromRepository,
+    ListPullRequestFilters, PullRequest, PullRequestState, PullRequestStateFilter,
+    PullRequestUserFilter, Repository, RepositoryVisibility, User, VersionControl,
+    VersionControlSettings,
 };
 use eyre::{eyre, Result};
 use native_tls::TlsConnector;
@@ -40,6 +42,33 @@ pub struct GitLabApproval {
     approved_by: Vec<GitLabApprovalUser>,
 }
 
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
+pub struct GitLabNamespace {
+    id: u32,
+    name: String,
+    web_url: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
+pub enum GitLabRepositoryVisibility {
+    #[serde(rename = "public")]
+    Public,
+    #[serde(rename = "internal")]
+    Internal,
+    #[serde(rename = "private")]
+    Private,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct GitLabForkedFromRepository {
+    id: u32,
+    name: String,
+    name_with_namespace: String,
+    path: String,
+    path_with_namespace: String,
+    web_url: String,
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 struct GitLabRepository {
     id: u32,
@@ -50,14 +79,106 @@ struct GitLabRepository {
     description: Option<String>,
     #[serde(with = "time::serde::iso8601")]
     created_at: OffsetDateTime,
+    #[serde(with = "time::serde::iso8601")]
+    last_activity_at: OffsetDateTime,
     default_branch: String,
     web_url: String,
+    ssh_url_to_repo: String,
+    http_url_to_repo: String,
     forks_count: u32,
     star_count: u32,
-    last_activity_at: String,
     archived: bool,
-    visibility: String,
+    visibility: GitLabRepositoryVisibility,
     owner: Option<GitLabUser>,
+    forked_from_project: Option<GitLabForkedFromRepository>,
+}
+
+impl From<GitLabRepository> for Repository {
+    fn from(repo: GitLabRepository) -> Repository {
+        let GitLabRepository {
+            name,
+            path_with_namespace,
+            description,
+            created_at,
+            default_branch,
+            web_url,
+            ssh_url_to_repo,
+            http_url_to_repo,
+            forks_count,
+            star_count,
+            last_activity_at,
+            archived,
+            visibility,
+            owner,
+            forked_from_project,
+            ..
+        } = repo;
+        Repository {
+            name,
+            full_name: path_with_namespace,
+            owner: owner.map(|o| o.into()),
+            visibility: match visibility {
+                GitLabRepositoryVisibility::Public => RepositoryVisibility::Public,
+                GitLabRepositoryVisibility::Internal => RepositoryVisibility::Internal,
+                GitLabRepositoryVisibility::Private => RepositoryVisibility::Private,
+            },
+            html_url: web_url,
+            description: description.unwrap_or_default(),
+            created_at,
+            updated_at: last_activity_at,
+            archived,
+            default_branch,
+            forks_count,
+            stars_count: star_count,
+            ssh_url: ssh_url_to_repo,
+            https_url: http_url_to_repo,
+            forked_from: forked_from_project.map(ForkedFromRepository::from),
+        }
+    }
+}
+
+impl From<GitLabForkedFromRepository> for ForkedFromRepository {
+    fn from(repo: GitLabForkedFromRepository) -> ForkedFromRepository {
+        let GitLabForkedFromRepository {
+            name,
+            path_with_namespace,
+            web_url,
+            ..
+        } = repo;
+        ForkedFromRepository {
+            name,
+            full_name: path_with_namespace,
+            html_url: web_url,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct GitLabCreateRepository {
+    name: String,
+    path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
+    namespace_id: Option<u32>,
+    visibility: GitLabRepositoryVisibility,
+    initialize_with_readme: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    default_branch: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct GitLabForkRepository {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    namespace_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    path: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct GitLabRepositoryDeleted {
+    message: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -144,6 +265,8 @@ pub struct GitLabCreatePullRequest {
     pub target_branch: String,
     pub remove_source_branch: bool,
     pub reviewer_ids: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_project_id: Option<u32>,
 }
 
 impl From<CreatePullRequest> for GitLabCreatePullRequest {
@@ -164,6 +287,7 @@ impl From<CreatePullRequest> for GitLabCreatePullRequest {
             target_branch: target.unwrap_or("master".to_string()),
             remove_source_branch: close_source_branch,
             reviewer_ids: reviewers,
+            target_project_id: None,
         }
     }
 }
@@ -209,7 +333,7 @@ pub struct GitLab {
 impl GitLab {
     #[instrument(skip_all)]
     fn get_repository_url(&self, url: &str) -> String {
-        format!("/projects/{}{}", encode(&self.repo).into_owned(), url)
+        format!("/projects/{}{}", encode(&self.repo), url)
     }
 
     #[instrument(skip_all)]
@@ -333,10 +457,19 @@ impl VersionControl for GitLab {
             info!("Using {default_branch} as target branch.");
             pr.target = Some(default_branch);
         }
+
+        let mut gitlab_pr = GitLabCreatePullRequest::from(pr);
+        if self.settings.fork {
+            let repo = self.get_repository_data()?;
+            if let Some(forked) = repo.forked_from_project {
+                gitlab_pr.target_project_id = Some(forked.id);
+            }
+        };
+
         let new_pr: GitLabPullRequest = self.call(
             "POST",
             &self.get_repository_url("/merge_requests"),
-            Some(GitLabCreatePullRequest::from(pr)),
+            Some(gitlab_pr),
         )?;
 
         Ok(new_pr.into())
@@ -420,5 +553,85 @@ impl VersionControl for GitLab {
         )?;
 
         Ok(pr.into())
+    }
+
+    #[instrument(skip_all)]
+    fn get_repository(&self) -> Result<Repository> {
+        let repo = self.get_repository_data()?;
+
+        Ok(repo.into())
+    }
+    #[instrument(skip_all)]
+    fn create_repository(&self, repo: CreateRepository) -> Result<Repository> {
+        let CreateRepository {
+            name,
+            organization,
+            description,
+            visibility,
+            init,
+            default_branch,
+            gitignore: _,
+            license: _,
+        } = repo;
+
+        let namespace_id = organization.and_then(|org| {
+            self.call::<GitLabNamespace, Option<u32>>(
+                "POST",
+                &format!("/namespaces?search={org}"),
+                None,
+            )
+            .map(|ns| ns.id)
+            .ok()
+        });
+
+        let create_repo = GitLabCreateRepository {
+            path: name.clone(),
+            name,
+            description,
+            namespace_id,
+            initialize_with_readme: init,
+            visibility: match visibility {
+                RepositoryVisibility::Public => GitLabRepositoryVisibility::Public,
+                RepositoryVisibility::Internal => GitLabRepositoryVisibility::Internal,
+                RepositoryVisibility::Private => GitLabRepositoryVisibility::Private,
+            },
+            default_branch,
+        };
+
+        let new_repo: GitLabRepository = self.call("POST", "/projects", Some(create_repo))?;
+
+        Ok(new_repo.into())
+    }
+    #[instrument(skip_all)]
+    fn fork_repository(&self, repo: ForkRepository) -> Result<Repository> {
+        let ForkRepository {
+            name,
+            organization: namespace_path,
+        } = repo;
+        let path = match (&namespace_path, &name) {
+            (Some(ns), Some(n)) => Some(format!("{ns}/{n}")),
+            (None, Some(n)) => Some(n.to_string()),
+            _ => None,
+        };
+
+        let new_repo: GitLabRepository = self.call(
+            "POST",
+            &self.get_repository_url("/fork"),
+            Some(GitLabForkRepository {
+                name,
+                namespace_path,
+                path,
+            }),
+        )?;
+
+        Ok(new_repo.into())
+    }
+
+    #[instrument(skip_all)]
+    fn delete_repository(&self) -> Result<()> {
+        let _: GitLabRepositoryDeleted =
+            self.call("DELETE", &self.get_repository_url(""), None as Option<i32>)?;
+
+        Ok(())
     }
 }

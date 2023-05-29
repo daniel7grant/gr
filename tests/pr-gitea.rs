@@ -93,9 +93,9 @@ fn test_pr() -> Result<()> {
     let no_pr = exec(gr, vec!["pr", "get"], false);
     assert!(no_pr.is_err());
     if let Err(err) = no_pr {
-        assert!(err.to_string().contains(&format!(
-            "Pull request on branch {pr_branch} not found."
-        )));
+        assert!(err
+            .to_string()
+            .contains(&format!("Pull request on branch {pr_branch} not found.")));
     }
 
     // Create the PR
@@ -130,7 +130,7 @@ fn test_pr() -> Result<()> {
     let merged_pr = exec(gr, vec!["pr", "merge"], false)?;
     test_pr_result(merged_pr, &key)?;
     let current_branch = exec("git", vec!["branch", "--show-current"], false)?;
-    assert_eq!(current_branch.iter().next().unwrap().trim(), &base_branch);
+    assert_eq!(current_branch.first().unwrap().trim(), &base_branch);
 
     // Delete created repositories
     env::set_current_dir("..")?;

@@ -147,8 +147,8 @@ pub fn create(args: Cli, mut conf: Configuration) -> Result<()> {
                     .entry(repo)
                     .and_modify(|repo| repo.default_branch = Some(pr.target.clone()))
                     .or_insert(RepositoryConfig {
-                        auth: None,
                         default_branch: Some(pr.target.clone()),
+                        ..Default::default()
                     });
             });
 

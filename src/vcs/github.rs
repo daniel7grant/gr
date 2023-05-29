@@ -1,7 +1,8 @@
 // Documentation: https://docs.github.com/en/rest/quickstart
 use super::common::{
-    CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
-    PullRequestStateFilter, User, VersionControl, VersionControlSettings,
+    CreatePullRequest, CreateRepository, ForkRepository, ForkedFromRepository,
+    ListPullRequestFilters, PullRequest, PullRequestState, PullRequestStateFilter, Repository,
+    RepositoryVisibility, User, VersionControl, VersionControlSettings,
 };
 use eyre::{eyre, ContextCompat, Result};
 use native_tls::TlsConnector;
@@ -34,15 +35,99 @@ struct GitHubRepository {
     private: bool,
     owner: GitHubUser,
     html_url: String,
+    ssh_url: String,
+    clone_url: String,
     description: Option<String>,
     #[serde(with = "time::serde::iso8601")]
     created_at: OffsetDateTime,
     #[serde(with = "time::serde::iso8601")]
     updated_at: OffsetDateTime,
     stargazers_count: u32,
+    forks_count: u32,
     archived: bool,
-    disabled: bool,
     default_branch: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    parent: Option<Box<GitHubRepository>>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct GitHubCreateRepository {
+    name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
+    private: bool,
+    auto_init: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    gitignore_template: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    license_template: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct GitHubForkRepository {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    organization: Option<String>,
+}
+
+impl From<GitHubRepository> for Repository {
+    fn from(repo: GitHubRepository) -> Repository {
+        let GitHubRepository {
+            name,
+            full_name,
+            private,
+            owner,
+            html_url,
+            ssh_url,
+            clone_url,
+            description,
+            created_at,
+            updated_at,
+            stargazers_count,
+            forks_count,
+            archived,
+            default_branch,
+            parent,
+        } = repo;
+        Repository {
+            name,
+            full_name,
+            owner: Some(owner.into()),
+            visibility: if private {
+                RepositoryVisibility::Private
+            } else {
+                RepositoryVisibility::Public
+            },
+            html_url,
+            ssh_url,
+            https_url: clone_url,
+            description: description.unwrap_or_default(),
+            created_at,
+            updated_at,
+            archived,
+            default_branch,
+            stars_count: stargazers_count,
+            forks_count,
+            forked_from: parent.map(|r| ForkedFromRepository::from(*r)),
+        }
+    }
+}
+
+impl From<GitHubRepository> for ForkedFromRepository {
+    fn from(repo: GitHubRepository) -> ForkedFromRepository {
+        let GitHubRepository {
+            name,
+            full_name,
+            html_url,
+            ..
+        } = repo;
+        ForkedFromRepository {
+            name,
+            full_name,
+            html_url,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -128,6 +213,8 @@ pub struct GitHubCreatePullRequest {
     pub body: String,
     pub head: String,
     pub base: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub head_repo: Option<String>,
 }
 
 impl From<CreatePullRequest> for GitHubCreatePullRequest {
@@ -145,6 +232,7 @@ impl From<CreatePullRequest> for GitHubCreatePullRequest {
             head: source,
             // We are never supposed to fallback to this, but handle it
             base: destination.unwrap_or("master".to_string()),
+            head_repo: None,
         }
     }
 }
@@ -232,7 +320,7 @@ impl GitHub {
         match result {
             Ok(result) => {
                 let status = result.status();
-                let t = result.into_string()?;
+                let mut t = result.into_string()?;
 
                 info!(
                     "Received response with response code {} with body size {}.",
@@ -240,6 +328,12 @@ impl GitHub {
                     t.len()
                 );
                 trace!("Response body: {t}.");
+
+                // Somewhat hacky, if the response is empty, return null
+                if t.is_empty() {
+                    t = "null".to_string();
+                }
+
                 let t: T = serde_json::from_str(&t)?;
                 Ok(t)
             }
@@ -299,15 +393,22 @@ impl VersionControl for GitHub {
             let GitHubRepository { default_branch, .. } = self.get_repository_data()?;
             pr.target = Some(default_branch);
         }
-        let new_pr: GitHubPullRequest = self.call(
-            "POST",
-            &self.get_repository_url("/pulls"),
-            Some(GitHubCreatePullRequest::from(pr)),
-        )?;
+
+        let mut url = self.get_repository_url("/pulls");
+        let mut github_pr = GitHubCreatePullRequest::from(pr);
+        if self.settings.fork {
+            let repo = self.get_repository()?;
+            if let Some(forked) = repo.forked_from {
+                url = format!("/repos/{}/pulls", forked.full_name);
+                github_pr.head_repo = Some(repo.full_name);
+            }
+        }
+
+        let new_pr: GitHubPullRequest = self.call("POST", &url, Some(github_pr))?;
 
         let _: GitHubPullRequest = self.call(
             "POST",
-            &self.get_repository_url(&format!("/pulls/{}/requested_reviewers", new_pr.number)),
+            &format!("{}/{}/requested_reviewers", url, new_pr.number),
             Some(GitHubCreatePullRequestReviewers { reviewers }),
         )?;
 
@@ -401,5 +502,61 @@ impl VersionControl for GitHub {
         )?;
 
         self.get_pr_by_id(id)
+    }
+
+    #[instrument(skip_all)]
+    fn get_repository(&self) -> Result<Repository> {
+        let repo = self.get_repository_data()?;
+
+        Ok(repo.into())
+    }
+
+    #[instrument(skip_all)]
+    fn create_repository(&self, repo: CreateRepository) -> Result<Repository> {
+        let CreateRepository {
+            name,
+            description,
+            visibility,
+            organization,
+            init,
+            default_branch: _,
+            gitignore,
+            license,
+        } = repo;
+        let create_repo: GitHubCreateRepository = GitHubCreateRepository {
+            name,
+            description,
+            private: visibility != RepositoryVisibility::Public,
+            auto_init: init,
+            gitignore_template: gitignore,
+            license_template: license,
+        };
+        let new_repo: GitHubRepository = if let Some(org) = organization {
+            self.call("POST", &format!("/orgs/{org}/repos"), Some(create_repo))
+        } else {
+            self.call("POST", "/user/repos", Some(create_repo))
+        }?;
+
+        Ok(new_repo.into())
+    }
+
+    #[instrument(skip_all)]
+    fn fork_repository(&self, repo: ForkRepository) -> Result<Repository> {
+        let ForkRepository { name, organization } = repo;
+
+        let new_repo: GitHubRepository = self.call(
+            "POST",
+            &self.get_repository_url("/forks"),
+            Some(GitHubForkRepository { name, organization }),
+        )?;
+
+        Ok(new_repo.into())
+    }
+
+    #[instrument(skip_all)]
+    fn delete_repository(&self) -> Result<()> {
+        self.call("DELETE", &self.get_repository_url(""), None as Option<i32>)?;
+
+        Ok(())
     }
 }

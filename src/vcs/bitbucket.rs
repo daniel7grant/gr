@@ -1,7 +1,8 @@
 // Documentation: https://developer.atlassian.com/cloud/bitbucket/rest/intro/
 use super::common::{
-    CreatePullRequest, ListPullRequestFilters, PullRequest, PullRequestState,
-    PullRequestStateFilter, User, VersionControl, VersionControlSettings,
+    CreatePullRequest, CreateRepository, ForkRepository, ForkedFromRepository,
+    ListPullRequestFilters, PullRequest, PullRequestState, PullRequestStateFilter, Repository,
+    RepositoryVisibility, User, VersionControl, VersionControlSettings,
 };
 use eyre::{eyre, ContextCompat, Result};
 use native_tls::TlsConnector;
@@ -34,6 +35,37 @@ impl From<BitbucketPullRequestState> for PullRequestState {
     }
 }
 
+#[derive(Debug, Default, Deserialize, Serialize)]
+pub struct BitbucketUser {
+    pub uuid: String,
+    pub nickname: String,
+    pub display_name: String,
+}
+
+impl From<BitbucketUser> for User {
+    fn from(user: BitbucketUser) -> User {
+        let BitbucketUser { uuid, nickname, .. } = user;
+        User {
+            id: uuid,
+            username: nickname,
+        }
+    }
+}
+
+#[derive(Debug, Default, Deserialize, Serialize)]
+pub struct BitbucketTeam {
+    pub uuid: String,
+    pub username: String,
+    pub display_name: String,
+}
+
+impl From<BitbucketTeam> for User {
+    fn from(user: BitbucketTeam) -> User {
+        let BitbucketTeam { uuid, username, .. } = user;
+        User { id: uuid, username }
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct BitbucketApproval {
     approved: bool,
@@ -45,59 +77,175 @@ pub struct BitbucketMembership {
     user: BitbucketUser,
 }
 
-#[derive(Debug, Default, Deserialize, Serialize)]
-pub struct BitbucketUser {
-    pub account_id: String,
-    pub uuid: String,
-    pub nickname: String,
-    pub display_name: String,
+#[derive(Debug, Deserialize, Serialize)]
+pub struct BitbucketCloneLink {
+    pub name: String,
+    pub href: String,
 }
 
-impl From<BitbucketUser> for User {
-    fn from(user: BitbucketUser) -> User {
-        let BitbucketUser {
-            account_id,
-            nickname,
+#[derive(Debug, Deserialize, Serialize)]
+pub struct BitbucketLink {
+    pub href: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct BitbucketForkedFromRepositoryLinks {
+    pub html: BitbucketLink,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct BitbucketRepositoryLinks {
+    pub html: BitbucketLink,
+    pub clone: Vec<BitbucketCloneLink>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct BitbucketPullRequestLinks {
+    pub html: BitbucketLink,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct BitbucketCommit {
+    pub hash: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct BitbucketBranch {
+    pub name: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct BitbucketRevisionRepository {
+    pub full_name: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct BitbucketRevision {
+    pub branch: BitbucketBranch,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commit: Option<BitbucketCommit>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub repository: Option<BitbucketRevisionRepository>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct BitbucketRepositoryProject {
+    uuid: String,
+    key: String,
+    name: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct BitbucketForkedFromRepository {
+    uuid: String,
+    name: String,
+    full_name: String,
+    links: BitbucketForkedFromRepositoryLinks,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct BitbucketRepository {
+    uuid: String,
+    name: String,
+    full_name: String,
+    links: BitbucketRepositoryLinks,
+    owner: BitbucketTeam,
+    description: String,
+    #[serde(with = "time::serde::iso8601")]
+    created_on: OffsetDateTime,
+    #[serde(with = "time::serde::iso8601")]
+    updated_on: OffsetDateTime,
+    language: String,
+    project: BitbucketRepositoryProject,
+    mainbranch: BitbucketBranch,
+    is_private: bool,
+    parent: Option<BitbucketForkedFromRepository>,
+}
+
+impl From<BitbucketRepository> for Repository {
+    fn from(repo: BitbucketRepository) -> Repository {
+        let BitbucketRepository {
+            name,
+            links,
+            full_name,
+            owner,
+            description,
+            created_on,
+            updated_on,
+            mainbranch,
+            is_private,
+            parent,
             ..
-        } = user;
-        User {
-            id: account_id,
-            username: nickname,
+        } = repo;
+        let ssh_url = links
+            .clone
+            .iter()
+            .find(|BitbucketCloneLink { name, .. }| name == "ssh")
+            .map(|BitbucketCloneLink { href, .. }| href);
+        let https_url = links
+            .clone
+            .iter()
+            .find(|BitbucketCloneLink { name, .. }| name == "https")
+            .map(|BitbucketCloneLink { href, .. }| href);
+        Repository {
+            name,
+            full_name,
+            owner: Some(owner.into()),
+            html_url: links.html.href,
+            description,
+            created_at: created_on,
+            updated_at: updated_on,
+            visibility: if is_private {
+                RepositoryVisibility::Private
+            } else {
+                RepositoryVisibility::Public
+            },
+            archived: false,
+            default_branch: mainbranch.name,
+            forks_count: 0,
+            stars_count: 0,
+            ssh_url: ssh_url.unwrap().to_owned(),
+            https_url: https_url.unwrap().to_owned(),
+            forked_from: parent.map(|r| r.into()),
+        }
+    }
+}
+
+impl From<BitbucketForkedFromRepository> for ForkedFromRepository {
+    fn from(repo: BitbucketForkedFromRepository) -> ForkedFromRepository {
+        let BitbucketForkedFromRepository {
+            name,
+            links,
+            full_name,
+            ..
+        } = repo;
+        ForkedFromRepository {
+            name,
+            full_name,
+            html_url: links.html.href,
         }
     }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct BitbucketPullRequestLink {
-    pub href: String,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct BitbucketPullRequestLinks {
-    pub html: BitbucketPullRequestLink,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct BitbucketPullRequestCommit {
-    pub hash: String,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct BitbucketPullRequestBranch {
-    pub name: String,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct BitbucketPullRequestRepository {
-    pub name: String,
-    pub full_name: String,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct BitbucketPullRequestRevision {
-    pub branch: BitbucketPullRequestBranch,
+struct BitbucketCreateRepository {
+    name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub commit: Option<BitbucketPullRequestCommit>,
+    description: Option<String>,
+    is_private: bool,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct BitbucketForkRepositoryWorkspace {
+    slug: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct BitbucketForkRepository {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    workspace: Option<BitbucketForkRepositoryWorkspace>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -111,8 +259,8 @@ pub struct BitbucketPullRequest {
     pub created_on: OffsetDateTime,
     #[serde(with = "time::serde::iso8601")]
     pub updated_on: OffsetDateTime,
-    pub source: BitbucketPullRequestRevision,
-    pub destination: BitbucketPullRequestRevision,
+    pub source: BitbucketRevision,
+    pub destination: BitbucketRevision,
     pub author: BitbucketUser,
     pub closed_by: Option<BitbucketUser>,
     pub reviewers: Option<Vec<BitbucketUser>>,
@@ -160,9 +308,9 @@ pub struct BitbucketReviewer {
 pub struct BitbucketCreatePullRequest {
     pub title: String,
     pub description: String,
-    pub source: BitbucketPullRequestRevision,
+    pub source: BitbucketRevision,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub destination: Option<BitbucketPullRequestRevision>,
+    pub destination: Option<BitbucketRevision>,
     pub close_source_branch: bool,
     pub reviewers: Vec<BitbucketReviewer>,
 }
@@ -181,17 +329,20 @@ impl From<CreatePullRequest> for BitbucketCreatePullRequest {
             target: destination,
             close_source_branch,
             reviewers,
+            ..
         } = pr;
         Self {
             title,
             description,
-            source: BitbucketPullRequestRevision {
-                branch: BitbucketPullRequestBranch { name: source },
+            source: BitbucketRevision {
+                branch: BitbucketBranch { name: source },
                 commit: None,
+                repository: None,
             },
-            destination: destination.map(|name| BitbucketPullRequestRevision {
-                branch: BitbucketPullRequestBranch { name },
+            destination: destination.map(|name| BitbucketRevision {
+                branch: BitbucketBranch { name },
                 commit: None,
+                repository: None,
             }),
             close_source_branch,
             reviewers: reviewers
@@ -257,7 +408,7 @@ impl Bitbucket {
         match result {
             Ok(result) => {
                 let status = result.status();
-                let t = result.into_string()?;
+                let mut t = result.into_string()?;
 
                 info!(
                     "Received response with response code {} with body size {}.",
@@ -265,6 +416,12 @@ impl Bitbucket {
                     t.len()
                 );
                 trace!("Response body: {t}.");
+
+                // Somewhat hacky, if the response is empty, return null
+                if t.is_empty() {
+                    t = "null".to_string();
+                }
+
                 let t: T = serde_json::from_str(&t)?;
                 Ok(t)
             }
@@ -351,11 +508,23 @@ impl VersionControl for Bitbucket {
     fn create_pr(&self, mut pr: CreatePullRequest) -> Result<PullRequest> {
         let reviewers = self.get_workspace_users(pr.reviewers.clone())?;
         pr.reviewers = reviewers.into_iter().map(|r| r.uuid).collect();
-        let new_pr: BitbucketPullRequest = self.call(
-            "POST",
-            &self.get_repository_url("/pullrequests"),
-            Some(BitbucketCreatePullRequest::from(pr)),
-        )?;
+
+        let mut url = self.get_repository_url("/pullrequests");
+        let mut bitbucket_pr = BitbucketCreatePullRequest::from(pr);
+        if self.settings.fork {
+            let repo = self.get_repository()?;
+            if let Some(forked) = repo.forked_from {
+                url = format!("/repositories/{}/pullrequests", forked.full_name);
+                bitbucket_pr.source = BitbucketRevision {
+                    repository: Some(BitbucketRevisionRepository {
+                        full_name: repo.full_name,
+                    }),
+                    ..bitbucket_pr.source
+                }
+            }
+        }
+
+        let new_pr: BitbucketPullRequest = self.call("POST", &url, Some(bitbucket_pr))?;
 
         Ok(new_pr.into())
     }
@@ -423,5 +592,64 @@ impl VersionControl for Bitbucket {
         )?;
 
         Ok(pr.into())
+    }
+
+    #[instrument(skip_all)]
+    fn get_repository(&self) -> Result<Repository> {
+        let repo =
+            self.call::<BitbucketRepository, i32>("GET", &self.get_repository_url(""), None)?;
+
+        Ok(repo.into())
+    }
+
+    #[instrument(skip_all)]
+    fn create_repository(&self, repo: CreateRepository) -> Result<Repository> {
+        // TODO: make it work with user
+        let CreateRepository {
+            name,
+            organization,
+            visibility,
+            description,
+            ..
+        } = repo;
+        let (user, _) = self
+            .settings
+            .auth
+            .split_once(':')
+            .wrap_err("Authentication format is invalid")?;
+        let workspace = organization.unwrap_or(user.to_string());
+        let create_repo: BitbucketCreateRepository = BitbucketCreateRepository {
+            name: name.clone(),
+            description,
+            is_private: visibility != RepositoryVisibility::Public,
+        };
+        let new_repo: BitbucketRepository = self.call(
+            "POST",
+            &format!("/repositories/{workspace}/{}", name),
+            Some(create_repo),
+        )?;
+
+        Ok(new_repo.into())
+    }
+
+    #[instrument(skip_all)]
+    fn fork_repository(&self, repo: ForkRepository) -> Result<Repository> {
+        let ForkRepository { name, organization } = repo;
+        let workspace = organization.map(|slug| BitbucketForkRepositoryWorkspace { slug });
+
+        let new_repo: BitbucketRepository = self.call(
+            "POST",
+            &self.get_repository_url("/forks"),
+            Some(BitbucketForkRepository { name, workspace }),
+        )?;
+
+        Ok(new_repo.into())
+    }
+
+    #[instrument(skip_all)]
+    fn delete_repository(&self) -> Result<()> {
+        self.call("DELETE", &self.get_repository_url(""), None as Option<i32>)?;
+
+        Ok(())
     }
 }

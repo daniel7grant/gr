@@ -5,10 +5,12 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs::read_to_string, fs::write};
 use tracing::{info, instrument, trace};
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Default)]
 pub struct RepositoryConfig {
     pub auth: Option<String>,
     pub default_branch: Option<String>,
+    #[serde(default)]
+    pub fork: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -97,6 +99,7 @@ impl Configuration {
                 auth: r.and_then(|r| r.auth.clone()).unwrap_or(v.auth.clone()),
                 default_branch: r.and_then(|r| r.default_branch.clone()),
                 vcs_type: v.vcs_type.clone(),
+                fork: r.map(|r| r.fork).unwrap_or_default(),
             }
         })
     }
