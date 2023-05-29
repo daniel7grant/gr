@@ -1,11 +1,14 @@
 # Changelog
 
-## [Unreleased]
+## [0.2.0] - 2023-05-29
 
--   Allow type to be defined at login
 -   Add Gitea integration
--   Allow repository creation and forking with repo subcommand
--   Add hidden repository delete command to repo
+-   Add repo subcommand to handle repositories
+    - Create new repositories on the remote with repo create subcommand
+    - Fork repositories with repo fork subcommand
+    - Clone repositories to specific directories
+    -   Add hidden repository delete command to repo
+-   Allow type to be defined at login
 
 ## [0.1.5] - 2023-03-22
 

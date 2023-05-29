@@ -348,9 +348,7 @@ $ gr login git.example.org --type gitlab")]
 }
 
 #[derive(Debug, Parser)]
-#[command(name = "gr")]
-#[command(version = "0.1.5")]
-#[command(about = "Interact with remote repositories like you interact with git", long_about = None)]
+#[command(name = "gr", version, about = "Interact with remote repositories like you interact with git", long_about = None)]
 #[command(after_help = "Examples:
 
 Login to the current repo's remote:
