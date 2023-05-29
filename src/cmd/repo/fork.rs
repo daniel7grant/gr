@@ -60,7 +60,7 @@ pub fn fork(args: Cli, mut conf: Configuration) -> Result<()> {
 
         if clone {
             // Wait until we have our repository, to let the server finish the fork
-            while let Err(_) = vcs.get_repository() {
+            while vcs.get_repository().is_err() {
                 sleep(Duration::from_millis(200));
             }
 
