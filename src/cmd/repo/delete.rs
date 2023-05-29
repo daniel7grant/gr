@@ -73,7 +73,7 @@ pub fn delete(args: Cli, conf: Configuration) -> Result<()> {
 
         vcs.delete_repository()?;
 
-        println!("Repository {} deleted.", repo.full_name );
+        println!("Repository {} deleted.", repo.full_name);
 
         Ok(())
     } else {

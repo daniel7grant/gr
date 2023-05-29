@@ -203,7 +203,7 @@ Get information about the current repository:
 $ gr repo get
 ")]
 pub enum RepoCommands {
-	#[command(alias = "create")]
+    #[command(alias = "create")]
     #[command(after_help = "Examples:
 
 Create new repository (and push the current dir if it has a git repository):
@@ -239,7 +239,7 @@ $ gr repo new new-repo --init --default-branch develop --gitignore Rust --licens
         visibility: Visibility,
         /// Whether to initialize the repository with a README (GitHub, GitLab and Gitea only)
         #[arg(long)]
-		init: bool,
+        init: bool,
         /// The default branch to initialize with (GitLab and Gitea only)
         #[arg(long)]
         default_branch: Option<String>,
@@ -251,7 +251,7 @@ $ gr repo new new-repo --init --default-branch develop --gitignore Rust --licens
         license: Option<String>,
         /// Whether to open the new repository in the browser
         #[arg(long)]
-		open: bool,
+        open: bool,
     },
     #[command(after_help = "Examples:
     
@@ -295,17 +295,20 @@ $ gr repo open
 ")]
     /// Open the repository in the browser
     Open {},
-    #[command(hide = true, after_help = "Examples:
+    #[command(
+        hide = true,
+        after_help = "Examples:
 
 Delete the current repository:
 $ gr repo delete
-")]
-	/// Delete the current repository
-	Delete {
-		/// Delete the repository FOREVER without interaction
-		#[arg(long = "yes-delete-permanently")]
-		force: bool,
-	},
+"
+    )]
+    /// Delete the current repository
+    Delete {
+        /// Delete the repository FOREVER without interaction
+        #[arg(long = "yes-delete-permanently")]
+        force: bool,
+    },
 }
 
 #[derive(Debug, Subcommand)]

@@ -118,7 +118,13 @@ fn test_repo() -> Result<()> {
     env::set_current_dir("..")?;
     let repo = exec(
         gr,
-        vec!["repo", "fork", &forked_url, &format!("{fork_into}/{second_repo}"), "--clone"],
+        vec![
+            "repo",
+            "fork",
+            &forked_url,
+            &format!("{fork_into}/{second_repo}"),
+            "--clone",
+        ],
         false,
     )?;
     test_forked_repo_result(repo, &second_repo)?;

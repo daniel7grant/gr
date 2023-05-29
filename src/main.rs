@@ -9,7 +9,7 @@ use cmd::{
         approve::approve, close::close, create::create, get::get as get_pr, list::list,
         merge::merge,
     },
-    repo::{fork::fork, get::get as get_repo, new::new, delete::delete},
+    repo::{delete::delete, fork::fork, get::get as get_repo, new::new},
 };
 use eyre::{eyre, Result};
 use std::process;
@@ -35,10 +35,10 @@ fn run(mut args: Cli) -> Result<()> {
         Commands::Repo(RepoCommands::Fork { .. }) => fork(args, conf),
         Commands::Repo(RepoCommands::Get { .. }) => get_repo(args, conf),
         Commands::Repo(RepoCommands::Open { .. }) => {
-			args.command = Commands::Repo(RepoCommands::Get { open: true });
+            args.command = Commands::Repo(RepoCommands::Get { open: true });
             get_repo(args, conf)
         }
-		Commands::Repo(RepoCommands::Delete { .. }) => delete(args, conf),
+        Commands::Repo(RepoCommands::Delete { .. }) => delete(args, conf),
         Commands::Completion { .. } => Err(eyre!("Invalid command.")),
     }
 }
