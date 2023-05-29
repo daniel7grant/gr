@@ -56,7 +56,7 @@ pub fn fork(args: Cli, mut conf: Configuration) -> Result<()> {
 
         repo.print(false, output.into());
 
-        let vcs = init_vcs(hostname.clone(), original.clone(), settings)?;
+        let vcs = init_vcs(hostname.clone(), repo.full_name, settings)?;
 
         if clone {
             // Wait until we have our repository, to let the server finish the fork
