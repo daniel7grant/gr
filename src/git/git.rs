@@ -106,16 +106,21 @@ impl LocalRepository {
                 vec!["config", &format!("branch.{branch_name}.remote")],
                 false,
             )
-            .wrap_err(eyre!(
-                "Branch {} doesn't have an upstream branch.",
-                &branch_name
-            ))?
-            .into_iter()
-            .next()
-            .wrap_err(eyre!(
-                "Branch {} doesn't have an upstream branch.",
-                &branch_name
-            ))?;
+            .and_then(|remotes| {
+                remotes.into_iter().next().wrap_err(eyre!(
+                    "Branch {} doesn't have an upstream branch.",
+                    &branch_name
+                ))
+            })
+            .or_else(|_| {
+                self.get_remotes().and_then(|remotes| {
+                    // Fall back to first remote
+                    remotes
+                        .into_iter()
+                        .next()
+                        .wrap_err(eyre!("Repository doesn't have any origin branches."))
+                })
+            })?;
 
         // Find remote URL
         let remote_url = self
