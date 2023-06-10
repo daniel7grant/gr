@@ -172,11 +172,11 @@ impl LocalRepository {
         branch_name: Option<String>,
         target_name: String,
     ) -> Result<Vec<String>> {
-        let branch_name = if let Some(branch_name) = branch_name {
-            branch_name
-        } else {
-            self.get_branch()?
-        };
+		let branch_name = if let Some(branch_name) = branch_name {
+			branch_name
+		} else {
+			self.get_branch()?
+		};
 
         // Find all commit summaries between the two branches
         let messages = self

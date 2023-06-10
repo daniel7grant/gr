@@ -32,7 +32,30 @@ pub fn create(args: Cli, mut conf: Configuration) -> Result<()> {
     {
         let repository = LocalRepository::init(dir)?;
         let (hostname, repo, remote_branch) = repository.get_parsed_remote(branch.clone())?;
-        let remote_branch = remote_branch.wrap_err(eyre!("You have to push this branch first before you can create a PR."))?;
+
+        // If branch has no remote, we can push it first
+        let remote_branch = remote_branch
+            .wrap_err("You have to push this branch first before you can create a PR.")
+            .or_else(|_| {
+                let remotes = repository.get_remotes()?;
+                let remote = remotes.first().wrap_err(
+                    "There are no remotes, push to a repository before you can create a PR.",
+                )?;
+
+                let branch = if let Some(branch) = &branch {
+                    branch.to_string()
+                } else {
+                    repository.get_branch()?
+                };
+                let message = format!("Branch {branch} is not pushed, pushing to {remote}.");
+                match output {
+                    OutputType::Json => info!("{}", message),
+                    _ => println!("{}", message),
+                };
+                repository.push(remote, &branch)?;
+
+                Ok(branch) as Result<String>
+            })?;
 
         // Find settings or use the auth command
         let settings = conf.find_settings(&hostname, &repo);
