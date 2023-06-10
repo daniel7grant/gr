@@ -28,6 +28,8 @@ pub struct PullRequest {
     pub description: String,
     pub source: String,
     pub target: String,
+    pub source_sha: String,
+    pub target_sha: String,
     pub url: String,
     #[serde(with = "time::serde::iso8601")]
     pub created_at: OffsetDateTime,

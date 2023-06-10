@@ -151,6 +151,7 @@ pub enum GiteaPullRequestState {
 pub struct GiteaPullRequestBranch {
     #[serde(rename = "ref")]
     pub branch: String,
+    pub sha: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -203,6 +204,8 @@ impl From<GiteaPullRequest> for PullRequest {
             description: body.unwrap_or_default(),
             source: head.branch,
             target: base.branch,
+            source_sha: head.sha,
+            target_sha: base.sha,
             url: html_url,
             created_at,
             updated_at,

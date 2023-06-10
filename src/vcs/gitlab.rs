@@ -182,6 +182,13 @@ struct GitLabRepositoryDeleted {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+pub struct GitLabDiffRefs {
+    base_sha: String,
+    head_sha: String,
+    start_sha: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub enum GitLabPullRequestState {
     #[serde(rename = "opened")]
     Open,
@@ -221,6 +228,7 @@ pub struct GitLabPullRequest {
     pub author: GitLabUser,
     pub closed_by: Option<GitLabUser>,
     pub reviewers: Option<Vec<GitLabUser>>,
+    pub diff_refs: GitLabDiffRefs,
 }
 
 impl From<GitLabPullRequest> for PullRequest {
@@ -238,6 +246,7 @@ impl From<GitLabPullRequest> for PullRequest {
             author,
             closed_by,
             reviewers,
+            diff_refs,
             ..
         } = pr;
         PullRequest {
@@ -246,7 +255,9 @@ impl From<GitLabPullRequest> for PullRequest {
             title,
             description,
             source: source_branch,
+            source_sha: diff_refs.head_sha,
             target: target_branch,
+            target_sha: diff_refs.base_sha,
             url: web_url,
             created_at,
             updated_at,
