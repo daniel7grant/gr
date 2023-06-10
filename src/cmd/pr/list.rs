@@ -24,7 +24,7 @@ pub fn list(args: Cli, conf: Configuration) -> Result<()> {
     if let Commands::Pr(PrCommands::List { author, state }) = command {
         let repository = LocalRepository::init(dir)?;
         // Find remote from branch upstream, or fallback to origin or any remote
-        let (hostname, repo, _) = repository.get_parsed_remote(None)?;
+        let (hostname, repo, ..) = repository.get_parsed_remote(None)?;
 
         // Find settings or use the auth command
         let settings = conf.find_settings(&hostname, &repo);

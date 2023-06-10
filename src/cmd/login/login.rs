@@ -29,7 +29,7 @@ pub fn login(args: Cli, mut conf: Configuration) -> Result<()> {
             (hostname, repo_name.clone().unwrap_or_default())
         } else {
             let repo = LocalRepository::init(dir)?;
-            let (hostname, repo, _) = repo.get_parsed_remote(None)?;
+            let (hostname, repo, ..) = repo.get_parsed_remote(None)?;
 
             (hostname, repo)
         };

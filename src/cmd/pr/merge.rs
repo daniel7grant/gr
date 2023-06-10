@@ -20,7 +20,8 @@ pub fn merge(args: Cli, conf: Configuration) -> Result<()> {
     } = args;
     if let Commands::Pr(PrCommands::Merge { delete }) = command {
         let repository = LocalRepository::init(dir)?;
-        let (hostname, repo, branch) = repository.get_parsed_remote(branch)?;
+        let (hostname, repo, remote_branch) = repository.get_parsed_remote(branch)?;
+        let remote_branch = remote_branch.wrap_err(eyre!("You have to push this branch first, before you can merge it."))?;
 
         // Find settings or use the auth command
         let settings = conf.find_settings(&hostname, &repo);
@@ -39,7 +40,7 @@ pub fn merge(args: Cli, conf: Configuration) -> Result<()> {
 
         // Merge the PR
         let vcs = init_vcs(hostname, repo, settings)?;
-        let pr = vcs.get_pr_by_branch(&branch)?;
+        let pr = vcs.get_pr_by_branch(&remote_branch)?;
         let pr = vcs.merge_pr(pr.id, delete)?;
 
         pr.print(false, output.into());

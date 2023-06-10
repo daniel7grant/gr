@@ -31,7 +31,8 @@ pub fn create(args: Cli, mut conf: Configuration) -> Result<()> {
     }) = command
     {
         let repository = LocalRepository::init(dir)?;
-        let (hostname, repo, branch_name) = repository.get_parsed_remote(branch.clone())?;
+        let (hostname, repo, remote_branch) = repository.get_parsed_remote(branch.clone())?;
+        let remote_branch = remote_branch.wrap_err(eyre!("You have to push this branch first before you can create a PR."))?;
 
         // Find settings or use the auth command
         let settings = conf.find_settings(&hostname, &repo);
@@ -102,7 +103,7 @@ pub fn create(args: Cli, mut conf: Configuration) -> Result<()> {
         let mut pr = vcs.create_pr(CreatePullRequest {
             title: message,
             description,
-            source: branch_name,
+            source: remote_branch,
             target,
             close_source_branch: delete,
             reviewers: reviewers.unwrap_or_default(),
