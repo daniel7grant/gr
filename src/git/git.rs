@@ -58,6 +58,16 @@ impl LocalRepository {
         self.run(vec!["rev-parse"], false).is_ok()
     }
 
+    #[instrument(skip_all)]
+    pub fn has_modifications(self: &LocalRepository) -> Result<bool> {
+        self.run(vec!["status", "--porcelain"], false)
+            .map(|rows| {
+                debug!("There are local changes ({}).", rows.join(", "));
+                rows.len() > 0
+            })
+            .or_else(|_| Err(eyre!("Unable to get modifications from repository.")))
+    }
+
     #[instrument(skip(self))]
     pub fn get_remotes(self: &LocalRepository) -> Result<Vec<String>> {
         self.run(vec!["remote"], false)
@@ -198,9 +208,9 @@ impl LocalRepository {
     }
 
     #[instrument(skip(self))]
-    pub fn push(self: &LocalRepository, branch: &str) -> Result<()> {
-        self.run(vec!["push", "-u", "origin", branch], true)
-            .wrap_err(eyre!("Could not push {branch} to remote"))?;
+    pub fn push(self: &LocalRepository, remote: &str, branch: &str) -> Result<()> {
+        self.run(vec!["push", "-u", remote, branch], true)
+            .wrap_err(eyre!("Could not push {branch} to {remote}"))?;
 
         Ok(())
     }

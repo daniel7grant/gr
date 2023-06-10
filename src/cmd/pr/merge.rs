@@ -18,7 +18,7 @@ pub fn merge(args: Cli, conf: Configuration) -> Result<()> {
         output,
         verbose: _,
     } = args;
-    if let Commands::Pr(PrCommands::Merge { delete }) = command {
+    if let Commands::Pr(PrCommands::Merge { delete , force}) = command {
         let repository = LocalRepository::init(dir)?;
         let (hostname, repo, remote_branch) = repository.get_parsed_remote(branch)?;
         let remote_branch = remote_branch.wrap_err(eyre!("You have to push this branch first, before you can merge it."))?;
@@ -37,6 +37,11 @@ pub fn merge(args: Cli, conf: Configuration) -> Result<()> {
                 &repo
             ))?
         };
+
+        // Check if there are local changes
+        if repository.has_modifications()? && !force {
+            return Err(eyre!("You can't merge until there are local modifications. If you are sure, pass the --force argument."));
+        }
 
         // Merge the PR
         let vcs = init_vcs(hostname, repo, settings)?;

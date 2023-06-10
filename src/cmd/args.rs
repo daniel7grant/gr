@@ -180,6 +180,9 @@ $ gr pr merge")]
         /// Delete remote and local branch after merging (remote is Gitlab and Bitbucket only)
         #[arg(long)]
         delete: bool,
+        /// Force the merge, even if there are local or remote changes (not recommended)
+        #[arg(long)]
+        force: bool,
     },
     #[command(after_help = "Examples:
 
