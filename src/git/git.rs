@@ -115,17 +115,17 @@ impl LocalRepository {
             vec!["config", &format!("branch.{branch_name}.remote")],
             false,
         )
-		// Find the first line as the remote
+        // Find the first line as the remote
         .and_then(|remotes| {
             remotes
                 .into_iter()
                 .next()
-				.map(|remote| (remote, Some(branch_name.clone())))
+                .map(|remote| (remote, Some(branch_name.clone())))
                 .wrap_err(eyre!(
-					"Branch {branch_name} doesn't have an upstream branch.",
+                    "Branch {branch_name} doesn't have an upstream branch.",
                 ))
         })
-		// If there are no remotes (branch hasn't been pushed), fallback to the list of branches
+        // If there are no remotes (branch hasn't been pushed), fallback to the list of branches
         .or_else(|_| {
             debug!("There is no remote for {branch_name}, falling back to first remote.");
             self.get_remotes().and_then(|remotes| {
@@ -137,6 +137,18 @@ impl LocalRepository {
                     .wrap_err(eyre!("Repository doesn't have any origin branches."))
             })
         })
+    }
+
+    #[instrument(skip(self))]
+    pub fn get_branch_sha(self: &LocalRepository, branch_name: Option<String>) -> Result<String> {
+        let branch_name = if let Some(branch_name) = branch_name {
+            branch_name
+        } else {
+            self.get_branch()?
+        };
+        self.run(vec!["rev-parse", &branch_name], false)
+            .map(|s| s.join(""))
+            .wrap_err("Cannot get commit SHA for the branch {branch}.")
     }
 
     #[instrument(skip(self))]
@@ -172,11 +184,11 @@ impl LocalRepository {
         branch_name: Option<String>,
         target_name: String,
     ) -> Result<Vec<String>> {
-		let branch_name = if let Some(branch_name) = branch_name {
-			branch_name
-		} else {
-			self.get_branch()?
-		};
+        let branch_name = if let Some(branch_name) = branch_name {
+            branch_name
+        } else {
+            self.get_branch()?
+        };
 
         // Find all commit summaries between the two branches
         let messages = self

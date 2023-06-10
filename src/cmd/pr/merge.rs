@@ -20,7 +20,7 @@ pub fn merge(args: Cli, conf: Configuration) -> Result<()> {
     } = args;
     if let Commands::Pr(PrCommands::Merge { delete , force}) = command {
         let repository = LocalRepository::init(dir)?;
-        let (hostname, repo, remote_branch) = repository.get_parsed_remote(branch)?;
+        let (hostname, repo, remote_branch) = repository.get_parsed_remote(branch.clone())?;
         let remote_branch = remote_branch.wrap_err(eyre!("You have to push this branch first, before you can merge it."))?;
 
         // Find settings or use the auth command
@@ -43,9 +43,17 @@ pub fn merge(args: Cli, conf: Configuration) -> Result<()> {
             return Err(eyre!("You can't merge until there are local modifications. If you are sure, pass the --force argument."));
         }
 
-        // Merge the PR
+		// Get the PR on the current branch
         let vcs = init_vcs(hostname, repo, settings)?;
         let pr = vcs.get_pr_by_branch(&remote_branch)?;
+		
+		// Check if there are unpushed changes
+		let branch_sha = repository.get_branch_sha(branch)?;
+		if pr.source_sha != branch_sha && !force {
+			return Err(eyre!("You can't merge until there are unpushed changes. If you are sure, pass the --force argument."));
+		};
+
+        // Merge the PR
         let pr = vcs.merge_pr(pr.id, delete)?;
 
         pr.print(false, output.into());
