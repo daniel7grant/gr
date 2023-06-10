@@ -270,6 +270,7 @@ pub struct BitbucketPullRequest {
     pub author: BitbucketUser,
     pub closed_by: Option<BitbucketUser>,
     pub reviewers: Option<Vec<BitbucketUser>>,
+    pub close_source_branch: bool,
 }
 
 impl From<BitbucketPullRequest> for PullRequest {
@@ -287,6 +288,7 @@ impl From<BitbucketPullRequest> for PullRequest {
             author,
             closed_by,
             reviewers,
+            close_source_branch,
         } = pr;
         PullRequest {
             id,
@@ -294,15 +296,16 @@ impl From<BitbucketPullRequest> for PullRequest {
             title,
             description,
             source: source.branch.name,
-			source_sha: source.commit.hash,
+            source_sha: source.commit.hash,
             target: destination.branch.name,
-			target_sha: destination.commit.hash,
+            target_sha: destination.commit.hash,
             url: links.html.href,
             created_at: created_on,
             updated_at: updated_on,
             author: author.into(),
             closed_by: closed_by.map(|u| u.into()),
             reviewers: reviewers.map(|rs| rs.into_iter().map(|r| r.into()).collect()),
+            delete_source_branch: close_source_branch,
         }
     }
 }
@@ -344,11 +347,11 @@ impl From<CreatePullRequest> for BitbucketCreatePullRequest {
             description,
             source: BitbucketCreateRevision {
                 branch: BitbucketBranch { name: source },
-				repository: None
+                repository: None,
             },
             destination: destination.map(|name| BitbucketCreateRevision {
                 branch: BitbucketBranch { name },
-				repository: None
+                repository: None,
             }),
             close_source_branch,
             reviewers: reviewers

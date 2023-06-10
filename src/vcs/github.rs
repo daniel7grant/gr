@@ -206,6 +206,7 @@ impl From<GitHubPullRequest> for PullRequest {
             author: user.into(),
             closed_by: merged_by.map(|c| c.into()),
             reviewers: requested_reviewers.map(|rs| rs.into_iter().map(|r| r.into()).collect()),
+            delete_source_branch: false,
         }
     }
 }

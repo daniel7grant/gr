@@ -70,8 +70,8 @@ pub fn merge(args: Cli, conf: Configuration) -> Result<()> {
         };
         repository.checkout_remote_branch(target_branch, output != OutputType::Json)?;
 
-        // Delete local branch if delete was passed
-        if delete {
+        // Delete local branch if remote branch is deleted
+        if pr.delete_source_branch {
             let source_branch = pr.source;
             repository.delete_branch(source_branch.clone())?;
 

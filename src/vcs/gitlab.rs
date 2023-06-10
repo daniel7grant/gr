@@ -228,7 +228,10 @@ pub struct GitLabPullRequest {
     pub author: GitLabUser,
     pub closed_by: Option<GitLabUser>,
     pub reviewers: Option<Vec<GitLabUser>>,
-    pub diff_refs: GitLabDiffRefs,
+    pub sha: String,
+    pub diff_refs: Option<GitLabDiffRefs>,
+    pub should_remove_source_branch: bool,
+    pub force_remove_source_branch: bool,
 }
 
 impl From<GitLabPullRequest> for PullRequest {
@@ -247,8 +250,17 @@ impl From<GitLabPullRequest> for PullRequest {
             closed_by,
             reviewers,
             diff_refs,
+            sha,
+            should_remove_source_branch,
+            force_remove_source_branch,
             ..
         } = pr;
+        let diff_refs = diff_refs.unwrap_or(GitLabDiffRefs {
+            head_sha: sha,
+			// TODO: if we don't have diff_refs, we cannot use the target_sha
+            base_sha: String::new(),
+            start_sha: String::new(),
+        });
         PullRequest {
             id: iid,
             state: state.into(),
@@ -264,6 +276,7 @@ impl From<GitLabPullRequest> for PullRequest {
             author: author.into(),
             closed_by: closed_by.map(|c| c.into()),
             reviewers: reviewers.map(|rs| rs.into_iter().map(|r| r.into()).collect()),
+            delete_source_branch: should_remove_source_branch || force_remove_source_branch,
         }
     }
 }

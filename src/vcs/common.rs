@@ -38,6 +38,7 @@ pub struct PullRequest {
     pub author: User,
     pub closed_by: Option<User>,
     pub reviewers: Option<Vec<User>>,
+	pub delete_source_branch: bool,
 }
 
 impl PullRequest {

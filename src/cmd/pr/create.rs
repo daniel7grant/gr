@@ -152,7 +152,7 @@ pub fn create(args: Cli, mut conf: Configuration) -> Result<()> {
             repository.checkout_remote_branch(target_branch, output != OutputType::Json)?;
 
             // Delete local branch if delete was passed
-            if delete {
+            if pr.delete_source_branch {
                 let source_branch = pr.source;
                 repository.delete_branch(source_branch.clone())?;
 
