@@ -15,7 +15,7 @@ pub fn close(args: Cli, conf: Configuration) -> Result<()> {
         dir,
         auth,
         output,
-        verbose: _,
+        ..
     } = args;
     if let Commands::Pr(PrCommands::Close {}) = command {
         let repository = LocalRepository::init(dir)?;

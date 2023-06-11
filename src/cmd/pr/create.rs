@@ -18,7 +18,7 @@ pub fn create(args: Cli, mut conf: Configuration) -> Result<()> {
         dir,
         auth,
         output,
-        verbose: _,
+        ..
     } = args;
     if let Commands::Pr(PrCommands::Create {
         message,
