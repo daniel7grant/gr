@@ -71,7 +71,7 @@ pub fn fork(args: Cli, mut conf: Configuration) -> Result<()> {
                     }
                 }
             }
-			sleep(Duration::from_millis(1000));
+			sleep(Duration::from_millis(300));
 
             // If clone is given, clone it to the directory (or here)
             let repository = LocalRepository::init(dir.clone())?;
