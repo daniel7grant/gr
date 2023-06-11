@@ -92,7 +92,7 @@ pub fn create(args: Cli, mut conf: Configuration) -> Result<()> {
             .or_else(|| {
                 let commits = repository
                     .get_branch_commits_from_target(
-                        branch,
+                        branch.clone(),
                         target
                             .clone()
                             .or(default_branch)
@@ -139,17 +139,18 @@ pub fn create(args: Cli, mut conf: Configuration) -> Result<()> {
             info!("Merging pull request {} instantly.", pr.id);
             pr = vcs.merge_pr(pr.id, false)?;
 
-            let target_branch = pr.target.clone();
-
-            let message = format!(
-                "Checking out to {} and pulling after merge.",
-                target_branch.blue()
-            );
-            match output {
-                OutputType::Json => info!("{}", message),
-                _ => println!("{}", message),
-            };
-            repository.checkout_remote_branch(target_branch, output != OutputType::Json)?;
+            if branch.is_none() {
+                let target_branch = pr.target.clone();
+                let message = format!(
+                    "Checking out to {} and pulling after merge.",
+                    target_branch.blue()
+                );
+                match output {
+                    OutputType::Json => info!("{}", message),
+                    _ => println!("{}", message),
+                };
+                repository.checkout_remote_branch(target_branch, output != OutputType::Json)?;
+            }
 
             // Delete local branch if delete was passed
             if pr.delete_source_branch {
