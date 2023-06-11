@@ -16,6 +16,7 @@ pub fn approve(args: Cli, conf: Configuration) -> Result<()> {
         auth,
         output,
         verbose: _,
+        ..
     } = args;
     if let Commands::Pr(PrCommands::Approve {}) = command {
         let repository = LocalRepository::init(dir)?;

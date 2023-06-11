@@ -15,7 +15,7 @@ pub fn get(args: Cli, mut conf: Configuration) -> Result<()> {
         dir,
         auth,
         output,
-        verbose: _,
+        ..
     } = args;
     if let Commands::Repo(RepoCommands::Get { open }) = command {
         let repository = LocalRepository::init(dir)?;

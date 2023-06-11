@@ -374,6 +374,9 @@ pub struct Cli {
     /// Change the repo directory (default: the current directory)
     #[arg(long, global = true)]
     pub dir: Option<String>,
+    /// Change configuration file path (default: ~/.config/gr.json)
+    #[arg(long, global = true)]
+    pub config: Option<String>,
     /// Change the authentication token (default: find in configuration)
     #[arg(long, global = true)]
     pub auth: Option<String>,

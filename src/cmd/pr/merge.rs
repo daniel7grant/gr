@@ -16,7 +16,7 @@ pub fn merge(args: Cli, conf: Configuration) -> Result<()> {
         dir,
         auth,
         output,
-        verbose: _,
+        ..
     } = args;
     if let Commands::Pr(PrCommands::Merge { delete, force }) = command {
         let repository = LocalRepository::init(dir)?;
