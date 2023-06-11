@@ -63,7 +63,7 @@ pub fn fork(args: Cli, mut conf: Configuration) -> Result<()> {
             while vcs.get_repository().is_err() {
                 sleep(Duration::from_millis(200));
             }
-            sleep(Duration::from_millis(300));
+            sleep(Duration::from_millis(500));
 
             // If clone is given, clone it to the directory (or here)
             let repository = LocalRepository::init(dir.clone())?;
