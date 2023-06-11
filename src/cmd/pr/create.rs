@@ -3,15 +3,15 @@ use std::io::{stdin, BufRead, Error};
 use crate::cmd::{
     args::{Cli, Commands, OutputType, PrCommands},
     config::{Configuration, RepositoryConfig},
+    pr::merge::merge,
 };
-use colored::Colorize;
 use eyre::{eyre, ContextCompat, Result};
 use gr_bin::vcs::common::{init_vcs, CreatePullRequest};
 use gr_bin::{git::git::LocalRepository, vcs::common::VersionControlSettings};
 use tracing::{debug, info, instrument, trace};
 
 #[instrument(skip_all, fields(command = ?args.command))]
-pub fn create(args: Cli, mut conf: Configuration) -> Result<()> {
+pub fn create(mut args: Cli, mut conf: Configuration) -> Result<()> {
     let Cli {
         command,
         branch,
@@ -19,7 +19,7 @@ pub fn create(args: Cli, mut conf: Configuration) -> Result<()> {
         auth,
         output,
         ..
-    } = args;
+    } = args.clone();
     if let Commands::Pr(PrCommands::Create {
         message,
         description,
@@ -27,7 +27,8 @@ pub fn create(args: Cli, mut conf: Configuration) -> Result<()> {
         delete,
         open,
         reviewers,
-        merge,
+        should_merge,
+        force_merge,
     }) = command
     {
         let repository = LocalRepository::init(dir)?;
@@ -123,7 +124,7 @@ pub fn create(args: Cli, mut conf: Configuration) -> Result<()> {
             .unwrap_or_default();
         let is_default_branch = target.is_none();
 
-        let mut pr = vcs.create_pr(CreatePullRequest {
+        let pr = vcs.create_pr(CreatePullRequest {
             title: message,
             description,
             source: remote_branch,
@@ -135,34 +136,13 @@ pub fn create(args: Cli, mut conf: Configuration) -> Result<()> {
         pr.print(open, output.into());
 
         // Merge the PR instantly if merge is passed
-        if merge {
+        if should_merge {
             info!("Merging pull request {} instantly.", pr.id);
-            pr = vcs.merge_pr(pr.id, false)?;
-
-            if branch.is_none() {
-                let target_branch = pr.target.clone();
-                let message = format!(
-                    "Checking out to {} and pulling after merge.",
-                    target_branch.blue()
-                );
-                match output {
-                    OutputType::Json => info!("{}", message),
-                    _ => println!("{}", message),
-                };
-                repository.checkout_remote_branch(target_branch, output != OutputType::Json)?;
-            }
-
-            // Delete local branch if delete was passed
-            if pr.delete_source_branch {
-                let source_branch = pr.source;
-                repository.delete_branch(source_branch.clone())?;
-
-                let message = format!("Deleted branch {}.", source_branch.blue());
-                match output {
-                    OutputType::Json => info!("{}", message),
-                    _ => println!("{}", message),
-                };
-            }
+            args.command = Commands::Pr(PrCommands::Merge {
+                delete,
+                force: force_merge,
+            });
+            merge(args, conf.clone())?;
         }
 
         // Save default branch to config for caching

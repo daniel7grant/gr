@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs::read_to_string, fs::write};
 use tracing::{info, instrument, trace};
 
-#[derive(Debug, Deserialize, Serialize, Default)]
+#[derive(Debug, Deserialize, Serialize, Default, Clone)]
 pub struct RepositoryConfig {
     pub auth: Option<String>,
     pub default_branch: Option<String>,
@@ -13,7 +13,7 @@ pub struct RepositoryConfig {
     pub fork: bool,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct VcsConfig {
     #[serde(rename = "type")]
     pub vcs_type: Option<String>,
@@ -22,7 +22,7 @@ pub struct VcsConfig {
     pub repositories: HashMap<String, RepositoryConfig>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Configuration {
     pub config_file_path: String,
     pub vcs: HashMap<String, VcsConfig>,

@@ -53,7 +53,7 @@ pub fn merge(args: Cli, conf: Configuration) -> Result<()> {
 
         // Check if there are unpushed changes
         let branch_sha = repository.get_branch_sha(branch.clone())?;
-        if pr.source_sha != branch_sha && !force {
+        if !branch_sha.starts_with(&pr.source_sha) && !force {
             return Err(eyre!("You can't merge until there are unpushed changes. If you are sure, pass the --force argument."));
         };
 

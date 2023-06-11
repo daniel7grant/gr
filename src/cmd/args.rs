@@ -66,7 +66,7 @@ impl From<Visibility> for RepositoryVisibility {
     }
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, Clone)]
 #[command(after_help = "Examples:
 
 Create pull request on current branch:
@@ -119,8 +119,11 @@ $ gr pr create -m 'Fix things' --merge --delete")]
         #[arg(long)]
         open: bool,
         /// Merge the pull request instantly (good for hotfixes)
+        #[arg(long = "merge")]
+        should_merge: bool,
+        /// Force the merge, even if there are local or remote changes (not recommended)
         #[arg(long)]
-        merge: bool,
+        force_merge: bool,
     },
     #[command(after_help = "Examples:
 
@@ -193,7 +196,7 @@ $ gr pr decline")]
     Close {},
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, Clone)]
 #[command(after_help = "Examples:
 
 Create new repository:
@@ -314,7 +317,7 @@ $ gr repo delete
     },
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, Clone)]
 pub enum Commands {
     #[command(after_help = "Examples:
 
@@ -350,7 +353,7 @@ $ gr login git.example.org --type gitlab")]
     Completion { shell: Shell },
 }
 
-#[derive(Debug, Parser)]
+#[derive(Debug, Parser, Clone)]
 #[command(name = "gr", version, about = "Interact with remote repositories like you interact with git", long_about = None)]
 #[command(after_help = "Examples:
 
