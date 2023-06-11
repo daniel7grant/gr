@@ -41,10 +41,8 @@ pub fn merge(args: Cli, conf: Configuration) -> Result<()> {
         };
 
         // Check if there are local changes if we are on this branch
-        if branch.is_none() {
-            if repository.has_modifications()? && !force {
-                return Err(eyre!("You can't merge until there are local modifications. If you are sure, pass the --force argument."));
-            }
+        if branch.is_none() && repository.has_modifications()? && !force {
+            return Err(eyre!("You can't merge until there are local modifications. If you are sure, pass the --force argument."));
         }
 
         // Get the PR on the current branch

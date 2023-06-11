@@ -63,9 +63,9 @@ impl LocalRepository {
         self.run(vec!["status", "--porcelain"], false)
             .map(|rows| {
                 debug!("There are local changes ({}).", rows.join(", "));
-                rows.len() > 0
+                !rows.is_empty()
             })
-            .or_else(|_| Err(eyre!("Unable to get modifications from repository.")))
+            .or(Err(eyre!("Unable to get modifications from repository.")))
     }
 
     #[instrument(skip(self))]

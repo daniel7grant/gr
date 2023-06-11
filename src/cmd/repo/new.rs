@@ -95,11 +95,11 @@ pub fn new(args: Cli, mut conf: Configuration) -> Result<()> {
 
                 repository
                     .set_remote(default_remote.to_string(), repo.ssh_url)
-                    .and_then(|_| repository.push(&default_remote, &branch))
+                    .and_then(|_| repository.push(default_remote, &branch))
                     .or_else(|_| {
                         repository
                             .set_remote("origin".to_string(), repo.https_url)
-                            .and_then(|_| repository.push(&default_remote, &branch))
+                            .and_then(|_| repository.push(default_remote, &branch))
                     })?;
             }
         }
