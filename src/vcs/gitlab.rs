@@ -230,7 +230,7 @@ pub struct GitLabPullRequest {
     pub reviewers: Option<Vec<GitLabUser>>,
     pub sha: String,
     pub diff_refs: Option<GitLabDiffRefs>,
-    pub should_remove_source_branch: bool,
+    pub should_remove_source_branch: Option<bool>,
     pub force_remove_source_branch: bool,
 }
 
@@ -276,7 +276,7 @@ impl From<GitLabPullRequest> for PullRequest {
             author: author.into(),
             closed_by: closed_by.map(|c| c.into()),
             reviewers: reviewers.map(|rs| rs.into_iter().map(|r| r.into()).collect()),
-            delete_source_branch: should_remove_source_branch || force_remove_source_branch,
+            delete_source_branch: should_remove_source_branch.unwrap_or_default() || force_remove_source_branch,
         }
     }
 }
