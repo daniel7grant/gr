@@ -17,7 +17,7 @@ use tracing::error;
 use utils::tracing::init_tracing;
 
 fn run(mut args: Cli) -> Result<()> {
-    let conf = Configuration::parse()?;
+    let conf = Configuration::parse(args.config.clone())?;
 
     match args.command {
         Commands::Login { .. } => login(args, conf),

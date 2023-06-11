@@ -18,7 +18,7 @@ pub fn delete(args: Cli, conf: Configuration) -> Result<()> {
         dir,
         auth,
         output,
-        verbose: _,
+        ..
     } = args;
     if let Commands::Repo(RepoCommands::Delete { force }) = command {
         let repository = LocalRepository::init(dir)?;
