@@ -60,8 +60,16 @@ pub fn fork(args: Cli, mut conf: Configuration) -> Result<()> {
 
         if clone {
             // Wait until we have our repository, to let the server finish the fork
-            while vcs.get_repository().is_err() {
-                sleep(Duration::from_millis(200));
+            loop {
+                match vcs.get_repository() {
+                    Ok(r) => {
+                        dbg!(r);
+						break;
+                    }
+                    Err(_) => {
+                        sleep(Duration::from_millis(200));
+                    }
+                }
             }
 
             // If clone is given, clone it to the directory (or here)
