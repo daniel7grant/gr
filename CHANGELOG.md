@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+
+-   Add GitHub Enterprise integration
+
 ## [0.2.0] - 2023-05-29
 
 -   Add Gitea integration
