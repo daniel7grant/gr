@@ -286,6 +286,7 @@ pub struct GitHub {
     settings: VersionControlSettings,
     client: Agent,
     repo: String,
+    hostname: String,
 }
 
 impl GitHub {
@@ -300,7 +301,12 @@ impl GitHub {
         url: &str,
         body: Option<U>,
     ) -> Result<T> {
-        let url = format!("https://api.github.com{}", url);
+        // Base URL is api.github.com or /api/v3, see https://stackoverflow.com/a/50612869
+        let hostname = match self.hostname.as_str() {
+            "github.com" => "api.github.com".to_string(),
+            hostname => format!("{hostname}/api/v3"),
+        };
+        let url = format!("https://{}{}", hostname, url);
 
         info!("Calling with {method} on {url}.");
 
@@ -363,19 +369,24 @@ impl GitHub {
 
 impl VersionControl for GitHub {
     #[instrument(skip_all)]
-    fn init(_: String, repo: String, settings: VersionControlSettings) -> Self {
+    fn init(hostname: String, repo: String, settings: VersionControlSettings) -> Self {
         let client = AgentBuilder::new()
             .tls_connector(Arc::new(TlsConnector::new().unwrap()))
             .build();
+
         GitHub {
             settings,
             client,
             repo,
+            hostname,
         }
     }
     #[instrument(skip_all)]
     fn login_url(&self) -> String {
-        "https://github.com/settings/tokens/new?description=gr&scopes=repo,project".to_string()
+        format!(
+            "https://{}/settings/tokens/new?description=gr&scopes=repo,project",
+            self.hostname
+        )
     }
 
     #[instrument(skip_all)]

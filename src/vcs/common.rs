@@ -2,6 +2,7 @@ use eyre::{eyre, Result};
 use open::that as open_in_browser;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
+use tracing::warn;
 
 use crate::formatters::formatter::{Formatter, FormatterType};
 use crate::vcs::{bitbucket::Bitbucket, gitea::Gitea, github::GitHub, gitlab::GitLab};
@@ -197,9 +198,29 @@ pub fn init_vcs(
             "github.com" => Ok(Box::new(GitHub::init(hostname, repo, settings))),
             "bitbucket.org" => Ok(Box::new(Bitbucket::init(hostname, repo, settings))),
             "gitlab.com" => Ok(Box::new(GitLab::init(hostname, repo, settings))),
-            _ => Err(eyre!(
-                "Server {hostname} type cannot be detected, add --type at login."
-            )),
+            _ => {
+                // Take some guesses what the host might be
+                if hostname.contains("github") {
+                    warn!("Assuming the host to be GitHub Enterprise (if it is incorrect, add --type at login).");
+                    Ok(Box::new(GitHub::init(hostname, repo, settings)))
+                } else if hostname.contains("gitlab") {
+                    warn!(
+                        "Assuming the host to be GitLab (if it is incorrect, add --type at login)."
+                    );
+                    Ok(Box::new(GitLab::init(hostname, repo, settings)))
+                } else if hostname.contains("gitea") {
+                    warn!(
+                        "Assuming the host to be Gitea (if it is incorrect, add --type at login)."
+                    );
+                    Ok(Box::new(Gitea::init(hostname, repo, settings)))
+                }
+                // Probably there should more detections down the line
+                else {
+                    Err(eyre!(
+                        "Server {hostname} type cannot be detected, add --type at login."
+                    ))
+                }
+            }
         }
     }
 }
