@@ -122,8 +122,14 @@ pub struct BitbucketRevisionRepository {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct BitbucketRevision {
     pub branch: BitbucketBranch,
+    pub commit: BitbucketCommit,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub commit: Option<BitbucketCommit>,
+    pub repository: Option<BitbucketRevisionRepository>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct BitbucketCreateRevision {
+    pub branch: BitbucketBranch,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub repository: Option<BitbucketRevisionRepository>,
 }
@@ -264,6 +270,7 @@ pub struct BitbucketPullRequest {
     pub author: BitbucketUser,
     pub closed_by: Option<BitbucketUser>,
     pub reviewers: Option<Vec<BitbucketUser>>,
+    pub close_source_branch: bool,
 }
 
 impl From<BitbucketPullRequest> for PullRequest {
@@ -281,6 +288,7 @@ impl From<BitbucketPullRequest> for PullRequest {
             author,
             closed_by,
             reviewers,
+            close_source_branch,
         } = pr;
         PullRequest {
             id,
@@ -288,13 +296,16 @@ impl From<BitbucketPullRequest> for PullRequest {
             title,
             description,
             source: source.branch.name,
+            source_sha: source.commit.hash,
             target: destination.branch.name,
+            target_sha: destination.commit.hash,
             url: links.html.href,
             created_at: created_on,
             updated_at: updated_on,
             author: author.into(),
             closed_by: closed_by.map(|u| u.into()),
             reviewers: reviewers.map(|rs| rs.into_iter().map(|r| r.into()).collect()),
+            delete_source_branch: close_source_branch,
         }
     }
 }
@@ -308,9 +319,9 @@ pub struct BitbucketReviewer {
 pub struct BitbucketCreatePullRequest {
     pub title: String,
     pub description: String,
-    pub source: BitbucketRevision,
+    pub source: BitbucketCreateRevision,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub destination: Option<BitbucketRevision>,
+    pub destination: Option<BitbucketCreateRevision>,
     pub close_source_branch: bool,
     pub reviewers: Vec<BitbucketReviewer>,
 }
@@ -334,14 +345,12 @@ impl From<CreatePullRequest> for BitbucketCreatePullRequest {
         Self {
             title,
             description,
-            source: BitbucketRevision {
+            source: BitbucketCreateRevision {
                 branch: BitbucketBranch { name: source },
-                commit: None,
                 repository: None,
             },
-            destination: destination.map(|name| BitbucketRevision {
+            destination: destination.map(|name| BitbucketCreateRevision {
                 branch: BitbucketBranch { name },
-                commit: None,
                 repository: None,
             }),
             close_source_branch,
@@ -515,7 +524,7 @@ impl VersionControl for Bitbucket {
             let repo = self.get_repository()?;
             if let Some(forked) = repo.forked_from {
                 url = format!("/repositories/{}/pullrequests", forked.full_name);
-                bitbucket_pr.source = BitbucketRevision {
+                bitbucket_pr.source = BitbucketCreateRevision {
                     repository: Some(BitbucketRevisionRepository {
                         full_name: repo.full_name,
                     }),

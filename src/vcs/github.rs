@@ -142,6 +142,7 @@ pub enum GitHubPullRequestState {
 pub struct GitHubPullRequestBranch {
     #[serde(rename = "ref")]
     pub branch: String,
+    pub sha: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -197,12 +198,15 @@ impl From<GitHubPullRequest> for PullRequest {
             description: body.unwrap_or_default(),
             source: head.branch,
             target: base.branch,
+            source_sha: head.sha,
+            target_sha: base.sha,
             url: html_url,
             created_at,
             updated_at,
             author: user.into(),
             closed_by: merged_by.map(|c| c.into()),
             reviewers: requested_reviewers.map(|rs| rs.into_iter().map(|r| r.into()).collect()),
+            delete_source_branch: false,
         }
     }
 }

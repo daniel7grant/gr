@@ -91,14 +91,15 @@ pub fn new(args: Cli, mut conf: Configuration) -> Result<()> {
             // If repository is git repo and has no remote, set remote and push to the new repo
             if repository.has_git() && repository.get_remotes()?.is_empty() {
                 let branch = repository.get_branch()?;
+                let default_remote = "origin";
 
                 repository
-                    .set_remote("origin".to_string(), repo.ssh_url)
-                    .and_then(|_| repository.push(&branch))
+                    .set_remote(default_remote.to_string(), repo.ssh_url)
+                    .and_then(|_| repository.push(default_remote, &branch))
                     .or_else(|_| {
                         repository
                             .set_remote("origin".to_string(), repo.https_url)
-                            .and_then(|_| repository.push(&branch))
+                            .and_then(|_| repository.push(default_remote, &branch))
                     })?;
             }
         }

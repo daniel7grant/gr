@@ -182,6 +182,13 @@ struct GitLabRepositoryDeleted {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+pub struct GitLabDiffRefs {
+    base_sha: String,
+    head_sha: String,
+    start_sha: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub enum GitLabPullRequestState {
     #[serde(rename = "opened")]
     Open,
@@ -221,6 +228,10 @@ pub struct GitLabPullRequest {
     pub author: GitLabUser,
     pub closed_by: Option<GitLabUser>,
     pub reviewers: Option<Vec<GitLabUser>>,
+    pub sha: String,
+    pub diff_refs: Option<GitLabDiffRefs>,
+    pub should_remove_source_branch: Option<bool>,
+    pub force_remove_source_branch: bool,
 }
 
 impl From<GitLabPullRequest> for PullRequest {
@@ -238,21 +249,35 @@ impl From<GitLabPullRequest> for PullRequest {
             author,
             closed_by,
             reviewers,
+            diff_refs,
+            sha,
+            should_remove_source_branch,
+            force_remove_source_branch,
             ..
         } = pr;
+        let diff_refs = diff_refs.unwrap_or(GitLabDiffRefs {
+            head_sha: sha,
+            // TODO: if we don't have diff_refs, we cannot use the target_sha
+            base_sha: String::new(),
+            start_sha: String::new(),
+        });
         PullRequest {
             id: iid,
             state: state.into(),
             title,
             description,
             source: source_branch,
+            source_sha: diff_refs.head_sha,
             target: target_branch,
+            target_sha: diff_refs.base_sha,
             url: web_url,
             created_at,
             updated_at,
             author: author.into(),
             closed_by: closed_by.map(|c| c.into()),
             reviewers: reviewers.map(|rs| rs.into_iter().map(|r| r.into()).collect()),
+            delete_source_branch: should_remove_source_branch.unwrap_or_default()
+                || force_remove_source_branch,
         }
     }
 }

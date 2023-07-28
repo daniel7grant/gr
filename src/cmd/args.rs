@@ -66,7 +66,7 @@ impl From<Visibility> for RepositoryVisibility {
     }
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, Clone)]
 #[command(after_help = "Examples:
 
 Create pull request on current branch:
@@ -93,8 +93,8 @@ $ git-cliff --tag PR --strip all | gr pr create -m 'Do things'
 Create a pull request to merge into a different branch:
 $ gr pr create -m 'Do things' --target staging
 
-Create a pull request and merge it immediately (for fix branches):
-$ gr pr create -m 'Fix things' --merge --delete")]
+Create a pull request and merge it immediately (good for fix branches):
+$ gr pr create -m 'Fix things' --merge --target staging --delete")]
     /// Create pull request for the current branch
     ///
     /// The only required field is the title (--message / -m), other fields will be filled by sane defaults:
@@ -118,9 +118,12 @@ $ gr pr create -m 'Fix things' --merge --delete")]
         /// Open the pull request in the browser
         #[arg(long)]
         open: bool,
-        /// Merge the pull request instantly (good for hotfixes)
+        /// Merge the pull request instantly, you have to pass the target branch for safety (good for hotfixes)
+        #[arg(long = "merge", requires = "target")]
+        should_merge: bool,
+        /// Force the merge, even if there are local or remote changes (not recommended)
         #[arg(long)]
-        merge: bool,
+        force_merge: bool,
     },
     #[command(after_help = "Examples:
 
@@ -180,6 +183,9 @@ $ gr pr merge")]
         /// Delete remote and local branch after merging (remote is Gitlab and Bitbucket only)
         #[arg(long)]
         delete: bool,
+        /// Force the merge, even if there are local or remote changes (not recommended)
+        #[arg(long)]
+        force: bool,
     },
     #[command(after_help = "Examples:
 
@@ -190,7 +196,7 @@ $ gr pr decline")]
     Close {},
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, Clone)]
 #[command(after_help = "Examples:
 
 Create new repository:
@@ -311,7 +317,7 @@ $ gr repo delete
     },
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, Clone)]
 pub enum Commands {
     #[command(after_help = "Examples:
 
@@ -347,7 +353,7 @@ $ gr login git.example.org --type gitlab")]
     Completion { shell: Shell },
 }
 
-#[derive(Debug, Parser)]
+#[derive(Debug, Parser, Clone)]
 #[command(name = "gr", version, about = "Interact with remote repositories like you interact with git", long_about = None)]
 #[command(after_help = "Examples:
 

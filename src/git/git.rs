@@ -58,6 +58,16 @@ impl LocalRepository {
         self.run(vec!["rev-parse"], false).is_ok()
     }
 
+    #[instrument(skip_all)]
+    pub fn has_modifications(self: &LocalRepository) -> Result<bool> {
+        self.run(vec!["status", "--porcelain"], false)
+            .map(|rows| {
+                debug!("There are local changes ({}).", rows.join(", "));
+                !rows.is_empty()
+            })
+            .or(Err(eyre!("Unable to get modifications from repository.")))
+    }
+
     #[instrument(skip(self))]
     pub fn get_remotes(self: &LocalRepository) -> Result<Vec<String>> {
         self.run(vec!["remote"], false)
@@ -90,32 +100,63 @@ impl LocalRepository {
     }
 
     #[instrument(skip(self))]
-    pub fn get_parsed_remote(
+    pub fn get_branch_upstream(
         self: &LocalRepository,
         branch_name: Option<String>,
-    ) -> Result<(String, String, String)> {
+    ) -> Result<(String, Option<String>)> {
         let branch_name = if let Some(branch_name) = branch_name {
             branch_name
         } else {
             self.get_branch()?
         };
 
-        // Get remote name
-        let remote_name = self
-            .run(
-                vec!["config", &format!("branch.{branch_name}.remote")],
-                false,
-            )
-            .wrap_err(eyre!(
-                "Branch {} doesn't have an upstream branch.",
-                &branch_name
-            ))?
-            .into_iter()
-            .next()
-            .wrap_err(eyre!(
-                "Branch {} doesn't have an upstream branch.",
-                &branch_name
-            ))?;
+        // Get remote name for branch
+        self.run(
+            vec!["config", &format!("branch.{branch_name}.remote")],
+            false,
+        )
+        // Find the first line as the remote
+        .and_then(|remotes| {
+            remotes
+                .into_iter()
+                .next()
+                .map(|remote| (remote, Some(branch_name.clone())))
+                .wrap_err(eyre!(
+                    "Branch {branch_name} doesn't have an upstream branch.",
+                ))
+        })
+        // If there are no remotes (branch hasn't been pushed), fallback to the list of branches
+        .or_else(|_| {
+            debug!("There is no remote for {branch_name}, falling back to first remote.");
+            self.get_remotes().and_then(|remotes| {
+                // Fall back to first remote
+                remotes
+                    .into_iter()
+                    .next()
+                    .map(|remote| (remote, None))
+                    .wrap_err(eyre!("Repository doesn't have any origin branches."))
+            })
+        })
+    }
+
+    #[instrument(skip(self))]
+    pub fn get_branch_sha(self: &LocalRepository, branch_name: Option<String>) -> Result<String> {
+        let branch_name = if let Some(branch_name) = branch_name {
+            branch_name
+        } else {
+            self.get_branch()?
+        };
+        self.run(vec!["rev-parse", &branch_name], false)
+            .map(|s| s.join(""))
+            .wrap_err("Cannot get commit SHA for the branch {branch}.")
+    }
+
+    #[instrument(skip(self))]
+    pub fn get_parsed_remote(
+        self: &LocalRepository,
+        branch_name: Option<String>,
+    ) -> Result<(String, String, Option<String>)> {
+        let (remote_name, branch_name) = self.get_branch_upstream(branch_name)?;
 
         // Find remote URL
         let remote_url = self
@@ -179,9 +220,9 @@ impl LocalRepository {
     }
 
     #[instrument(skip(self))]
-    pub fn push(self: &LocalRepository, branch: &str) -> Result<()> {
-        self.run(vec!["push", "-u", "origin", branch], true)
-            .wrap_err(eyre!("Could not push {branch} to remote"))?;
+    pub fn push(self: &LocalRepository, remote: &str, branch: &str) -> Result<()> {
+        self.run(vec!["push", "-u", remote, branch], true)
+            .wrap_err(eyre!("Could not push {branch} to {remote}"))?;
 
         Ok(())
     }

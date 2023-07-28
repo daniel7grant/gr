@@ -2,27 +2,50 @@
 
 ## [Unreleased]
 
+### Added
+
 -   Add GitHub Enterprise integration
 -   Add assumptions to VCS type if the hostname matches "github", "gitlab" or "gitea"
 
+### Improved
+
+-   Check if branch has been pushed before approve, close, create, get and merge
+-   Push branch automatically on create
+-   Check for uncommited and unpushed changes before merge (allow pushing with --force)
+
+### Fixed
+
+-   Allow PR listing without needing the branch to be pushed
+-   Delete local branch if deletion is set on create
+
 ## [0.2.0] - 2023-05-29
+
+### Added
 
 -   Add Gitea integration
 -   Add repo subcommand to handle repositories
-    - Create new repositories on the remote with repo create subcommand
-    - Fork repositories with repo fork subcommand
-    - Clone repositories to specific directories
+    -   Create new repositories on the remote with repo create subcommand
+    -   Fork repositories with repo fork subcommand
+    -   Clone repositories to specific directories
     -   Add hidden repository delete command to repo
 -   Allow type to be defined at login
 
 ## [0.1.5] - 2023-03-22
 
+### Added
+
 -   Add integration (end-to-end) tests for GitHub, GitLab and Bitbucket integrations
 -   Add test running to GitHub Workflows
+
+### Fixed
+
 -   Refactor ureq calls to handle 400-500 status code errors gracefully
 -   Fix Bitbucket pull request list parameters to avoid an infinite loop
 -   Fix Github pull request querying by adding the repo orgname to the branch name
 -   Fix README sync with npm package in pipeline
+
+### Improved
+
 -   Add metadata for binstall to the Cargo.toml file
 
 ## [0.1.4] - 2023-03-17
