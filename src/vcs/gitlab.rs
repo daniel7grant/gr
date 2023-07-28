@@ -257,7 +257,7 @@ impl From<GitLabPullRequest> for PullRequest {
         } = pr;
         let diff_refs = diff_refs.unwrap_or(GitLabDiffRefs {
             head_sha: sha,
-			// TODO: if we don't have diff_refs, we cannot use the target_sha
+            // TODO: if we don't have diff_refs, we cannot use the target_sha
             base_sha: String::new(),
             start_sha: String::new(),
         });
@@ -276,7 +276,8 @@ impl From<GitLabPullRequest> for PullRequest {
             author: author.into(),
             closed_by: closed_by.map(|c| c.into()),
             reviewers: reviewers.map(|rs| rs.into_iter().map(|r| r.into()).collect()),
-            delete_source_branch: should_remove_source_branch.unwrap_or_default() || force_remove_source_branch,
+            delete_source_branch: should_remove_source_branch.unwrap_or_default()
+                || force_remove_source_branch,
         }
     }
 }

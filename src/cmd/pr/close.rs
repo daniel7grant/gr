@@ -20,7 +20,9 @@ pub fn close(args: Cli, conf: Configuration) -> Result<()> {
     if let Commands::Pr(PrCommands::Close {}) = command {
         let repository = LocalRepository::init(dir)?;
         let (hostname, repo, remote_branch) = repository.get_parsed_remote(branch)?;
-		let remote_branch = remote_branch.wrap_err(eyre!("You have to push this branch first before you can close a PR."))?;
+        let remote_branch = remote_branch.wrap_err(eyre!(
+            "You have to push this branch first before you can close a PR."
+        ))?;
 
         // Find settings or use the auth command
         let settings = conf.find_settings(&hostname, &repo);
