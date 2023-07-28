@@ -24,7 +24,7 @@ pub fn init_tracing(verbosity: u8, output: OutputType) -> Result<()> {
             1 => LevelFilter::INFO,
             2 => LevelFilter::DEBUG,
             3 => LevelFilter::TRACE,
-            _ => LevelFilter::ERROR,
+            _ => LevelFilter::WARN,
         });
 
     // Select output to JSON, or leave it regular
