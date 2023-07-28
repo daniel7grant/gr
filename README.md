@@ -4,13 +4,14 @@ Interact with remote repositories like you interact with git
 
 ## Features
 
--   Login with Github, GitLab (cloud or self-hosted) or Bitbucket
+-   Login with Github (cloud or Enterprise), GitLab (cloud or self-hosted), Bitbucket and Gitea
 -   Create new pull request with only a title
+-   Read, create and fork repositories
 -   Read, list and open existing pull requests in the browser
 -   Approve, merge and decline pull requests
 -   With git integration (pull, branch change)
 
-And it's all from the terminal!
+And it's all from the **terminal**!
 
 ## Installation
 
@@ -30,7 +31,7 @@ gr --version
 
 ## Usage
 
-`gr` is similar to `git`, that it looks at your current directory, and reads the information from git. To start, move to a local git repo, and login to the remote (if you only want to try, replace `gr` with `npx gr-bin`):
+`gr` is similar to `git`, that it looks at your current directory, and reads the information from it. To start, move to a local git repo, and login to the remote (if you only want to try, replace `gr` with `npx gr-bin`):
 
 ```shell
 cd /path/to/repo

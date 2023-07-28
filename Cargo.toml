@@ -1,7 +1,7 @@
 [package]
 name = "gr-bin"
 description = "Interact with remote repositories like you interact with git"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 license = "MIT"
 documentation = "https://github.com/daniel7grant/gr"
