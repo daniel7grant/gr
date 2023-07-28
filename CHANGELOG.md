@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 -   Add GitHub Enterprise integration
+-   Add assumptions to VCS type if the hostname matches "github", "gitlab" or "gitea"
 
 ## [0.2.0] - 2023-05-29
 
